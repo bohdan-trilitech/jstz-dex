@@ -161,7 +161,7 @@ export default function DexApp() {
                 </span>
               </div>
               <Button variant="outline" size="sm" onClick={checkExtensionStatus}>
-                Retry
+                Try again
               </Button>
             </div>
           </div>
