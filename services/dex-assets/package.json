@@ -1,0 +1,17 @@
+{
+  "name": "jstz-dex",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "private": true,
+  "dependencies": {
+    "@jstz-dev/jstz": "^0.0.0",
+    "itty-router": "^5.0.18",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.2"
+  },
+  "scripts": {
+    "build": "esbuild index.ts --bundle --format=esm --target=esnext --minify --outfile=dist/index.js"
+  }
+}
