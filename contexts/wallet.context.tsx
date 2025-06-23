@@ -5,7 +5,7 @@ import { createContext, useContext, useState, type PropsWithChildren } from "rea
 import { useAssetsContext } from "@/contexts/assets.context";
 import { requestAddress } from "@/lib/jstz-signer.service";
 import { DexAPI } from "@/services/dex-api";
-import type { Asset, Transaction, UserBalance } from "@/types/dex";
+import type { Asset, Transaction, UserBalance, WalletResponse } from "@/types/dex";
 
 interface WalletContext {
   userAddress: string;
@@ -17,7 +17,7 @@ interface WalletContext {
   loading: boolean;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
-  loadUserBalances: (address?: string) => Promise<void>;
+  loadUserBalances: () => Promise<WalletResponse>;
   transactions: Transaction[];
   setTransactions: (transactions: Transaction[]) => void;
 }
@@ -56,11 +56,9 @@ export function WalletContextProvider({ children }: WalletProps) {
 
     setLoading(true);
     try {
-      const response = await requestAddress();
-      const address = response.data.accountAddress;
+      const { address } = await loadWalletMeta();
       setUserAddress(address);
       setIsConnected(true);
-      loadWalletMeta(address);
     } catch (error) {
       console.error("Failed to connect wallet:", error);
     } finally {
@@ -74,17 +72,17 @@ export function WalletContextProvider({ children }: WalletProps) {
     setUserBalances({});
   };
 
-  const loadWalletMeta = async (address?: string) => {
-    const targetAddress = address || userAddress;
-    if (!targetAddress) return;
-
+  const loadWalletMeta = async () => {
     try {
-      const walletMeta = await DexAPI.getWallet(targetAddress);
+      const walletMeta = await DexAPI.getMyWallet();
       setUserBalances(walletMeta.balances);
       setTransactions(walletMeta.transactions);
       setAssets(walletMeta.assets);
+
+      return walletMeta;
     } catch (error) {
       console.error("Failed to load user balances:", error);
+      throw error;
     }
   };
 

@@ -40,6 +40,7 @@ export interface BalanceMutationResponse extends AssetMutatingResponse {
 }
 
 export interface WalletResponse {
+  address: string;
   assets: Asset[];
   balances: UserBalance;
   transactions: Transaction[];

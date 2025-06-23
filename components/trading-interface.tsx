@@ -129,7 +129,6 @@ export function TradingInterface({
       const result = await DexAPI.buyTokens({
         symbol: data.assetSymbol,
         amount: data.amount,
-        address: userAddress,
       });
 
       showToast(`${result.message} Cost: ${result.cost.toFixed(4)}`, result.status);
@@ -152,7 +151,6 @@ export function TradingInterface({
       const result = await DexAPI.sellTokens({
         symbol: data.assetSymbol,
         amount: data.amount,
-        address: userAddress,
       });
 
       showToast(result.message, result.status);
@@ -176,7 +174,6 @@ export function TradingInterface({
         fromSymbol: data.fromSymbol,
         toSymbol: data.toSymbol,
         amount: data.amount,
-        address: userAddress,
       });
 
       showToast(result.message, result.status);

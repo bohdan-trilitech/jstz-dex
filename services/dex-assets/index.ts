@@ -28,20 +28,17 @@ const transactionSchema = z.object({
 const buySchema = z.object({
   symbol: z.string(),
   amount: z.number().min(1),
-  address: z.string(),
 });
 
 const swapSchema = z.object({
   fromSymbol: z.string(),
   toSymbol: z.string(),
   amount: z.number().min(1),
-  address: z.string(),
 });
 
 const sellSchema = z.object({
   symbol: z.string(),
   amount: z.number().min(1),
-  address: z.string(),
 });
 
 const listAssetSchema = z.object({
@@ -71,6 +68,7 @@ const balanceMutationResponseSchema = z.object({
 });
 
 const walletMetadataSchema = balanceMutationResponseSchema.extend({
+  address: z.string(),
   assets: z.array(
     assetSchema
       .extend({
@@ -93,6 +91,11 @@ const buyResponseSchema = messageResponseSchema.extend({
 const router = AutoRouter();
 
 // Helpers
+function getCaller(req: Request): string | null {
+  const ref = req.headers.get('referer');
+  return ref || null;
+}
+
 async function updateUserBalance(address: string, symbol: string, delta: number) {
   const balanceKey = `balances/${address}/${symbol}`;
   const indexKey = `balances/${address}`;
@@ -163,6 +166,7 @@ async function addWalletMetadata(address: string, response?: Record<string, unkn
   const transactions = await getWalletTransactions(address);
 
   const walletMetaResponse = walletMetadataSchema.parse({
+    address,
     balances,
     transactions,
     ...assetsResponse,
@@ -269,13 +273,40 @@ router.post("/assets/unlist", async (request) => {
   );
 });
 
-router.get("/user/:address", async (request) => {
+router.get("/users/me", async (request) => {
+  const address = getCaller(request);
+  if (!address) return errorResponse("Address is required.");
+
+  return successResponse(await addWalletMetadata(address));
+});
+
+router.get("/users/me/balances", async (request) => {
+  const address = getCaller(request);
+  if (!address) return errorResponse("Address is required.");
+
+  const balances = await getWalletBalances(address);
+
+  const response = balanceMutationResponseSchema.parse(balances);
+
+  return successResponse(response);
+});
+
+router.get("/users/me/txs", async (request) => {
+  const address = getCaller(request);
+  if (!address) return errorResponse("Address is required.");
+
+  const data = await getWalletTransactions(address);
+  return successResponse(data);
+});
+
+
+router.get("/users/:address", async (request) => {
   const { address } = request.params;
 
   return successResponse(await addWalletMetadata(address));
 });
 
-router.get("/user/:address/balances", async (request) => {
+router.get("/users/:address/balances", async (request) => {
   const { address } = request.params;
   const balances = await getWalletBalances(address);
 
@@ -284,7 +315,8 @@ router.get("/user/:address/balances", async (request) => {
   return successResponse(response);
 });
 
-router.get("/user/:address/txs", async (request) => {
+
+router.get("/users/:address/txs", async (request) => {
   const { address } = request.params;
   const data = await getWalletTransactions(address);
   return successResponse(data);
@@ -296,7 +328,10 @@ router.post("/buy", async (request) => {
     const parsed = buySchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.message);
 
-    const { symbol, amount, address } = parsed.data;
+    const address = getCaller(request);
+    if (!address) return errorResponse("Address is required.");
+    
+    const { symbol, amount } = parsed.data;
     const key = `assets/${symbol}`;
     const data = await Kv.get(key);
     if (!data) return errorResponse("Asset not found.");
@@ -343,7 +378,10 @@ router.post("/swap", async (request) => {
     const parsed = swapSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.message);
 
-    const { fromSymbol, toSymbol, amount, address } = parsed.data;
+    const address = getCaller(request);
+    if (!address) return errorResponse("Address is required.");
+    
+    const { fromSymbol, toSymbol, amount } = parsed.data;
     const fromKey = `assets/${fromSymbol}`;
     const toKey = `assets/${toSymbol}`;
     const fromData = await Kv.get(fromKey);
@@ -413,7 +451,10 @@ router.post("/sell", async (request) => {
     const parsed = sellSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.message);
 
-    const { symbol, amount, address } = parsed.data;
+    const address = getCaller(request);
+    if (!address) return errorResponse("Address is required.");
+    
+    const { symbol, amount } = parsed.data;
     const key = `assets/${symbol}`;
     const data = await Kv.get(key);
     if (!data) return errorResponse("Asset not found.");

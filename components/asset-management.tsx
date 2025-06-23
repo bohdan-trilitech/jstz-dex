@@ -107,7 +107,6 @@ export function AssetManagement({ userAddress, extensionAvailable }: AssetManage
     try {
       const result = await DexAPI.listAsset({
         symbol: data.symbol.toUpperCase(),
-        address: userAddress,
         basePrice: data.basePrice,
         slope: data.slope,
       });
@@ -140,7 +139,7 @@ export function AssetManagement({ userAddress, extensionAvailable }: AssetManage
 
     setLoading(true);
     try {
-      const result = await DexAPI.unlistAsset(symbol, userAddress);
+      const result = await DexAPI.unlistAsset(symbol);
 
       toast({
         title: "Success",
