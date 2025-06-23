@@ -8,6 +8,7 @@ import { DexAPI } from "@/services/dex-api";
 import type { Asset, Transaction, UserBalance, WalletResponse } from "@/types/dex";
 
 interface WalletContext {
+  isAdmin: boolean;
   userAddress: string;
   userBalances: UserBalance;
   setUserBalances: (balances: UserBalance) => void;
@@ -28,6 +29,7 @@ interface WalletProps extends PropsWithChildren {}
 
 export function WalletContextProvider({ children }: WalletProps) {
   const { setAssets } = useAssetsContext();
+  const [isAdmin, setIsAdmin] = useState(false);
   const [userAddress, setUserAddress] = useState("");
   const [userBalances, setUserBalances] = useState<UserBalance>({});
   const [isConnected, setIsConnected] = useState(false);
@@ -78,6 +80,7 @@ export function WalletContextProvider({ children }: WalletProps) {
       setUserBalances(walletMeta.balances);
       setTransactions(walletMeta.transactions);
       setAssets(walletMeta.assets);
+      setIsAdmin(walletMeta.isOperator);
 
       return walletMeta;
     } catch (error) {
@@ -89,6 +92,7 @@ export function WalletContextProvider({ children }: WalletProps) {
   return (
     <WalletContext
       value={{
+        isAdmin,
         userAddress,
         userBalances,
         setUserBalances,

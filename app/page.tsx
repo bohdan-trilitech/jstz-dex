@@ -1,9 +1,19 @@
 "use client";
 
-import { Wallet, BarChart3, Settings, AlertTriangle, WifiOff, Chrome } from "lucide-react";
+import {
+  Wallet,
+  BarChart3,
+  AlertTriangle,
+  WifiOff,
+  Chrome,
+  Coins,
+  SettingsIcon,
+} from "lucide-react";
 
 import { AssetManagement } from "@/components/asset-management";
+import Logo from "@/components/logo";
 import { Portfolio } from "@/components/portfolio";
+import { Settings } from "@/components/settings";
 import { ThemeModeToggle } from "@/components/theme-toggle";
 import { TradingInterface } from "@/components/trading-interface";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -11,10 +21,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWalletContext } from "@/contexts/wallet.context";
-import Logo from "@/components/logo";
+import { cn } from "@/lib/utils";
 
 export default function DexApp() {
   const {
+    isAdmin,
     isConnected,
     extensionStatus,
     checkExtensionStatus,
@@ -170,7 +181,7 @@ export default function DexApp() {
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <Tabs defaultValue="trade" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className={cn("grid w-full grid-cols-3", isAdmin && "grid-cols-4")}>
             <TabsTrigger value="trade" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Trade
@@ -180,30 +191,33 @@ export default function DexApp() {
               Portfolio
             </TabsTrigger>
             <TabsTrigger value="manage" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Manage Assets
+              <Coins className="h-4 w-4" />
+              Assets
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="settings" className="flex items-center gap-2">
+                <SettingsIcon className="h-4 w-4" />
+                Settings
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="trade" className="mt-6">
             <div className="flex justify-center">
-              <TradingInterface
-                userAddress={userAddress}
-                userBalances={userBalances}
-                extensionAvailable={extensionStatus === "available"}
-              />
+              <TradingInterface />
             </div>
           </TabsContent>
 
           <TabsContent value="portfolio" className="mt-6">
-            <Portfolio userAddress={userAddress} userBalances={userBalances} />
+            <Portfolio />
           </TabsContent>
 
           <TabsContent value="manage" className="mt-6">
-            <AssetManagement
-              userAddress={userAddress}
-              extensionAvailable={extensionStatus === "available"}
-            />
+            <AssetManagement />
+          </TabsContent>
+
+          <TabsContent value="settings" className="mt-6">
+            <Settings />
           </TabsContent>
         </Tabs>
       </main>

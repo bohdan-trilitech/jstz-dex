@@ -7,7 +7,7 @@ import {
   BuyResult,
   AssetMutatingResponse,
   WalletResponse,
-  SellResult,
+  SellResult, OperatorsResponse,
 } from "@/types/dex";
 
 const encoder = new TextEncoder();
@@ -112,6 +112,47 @@ export class DexAPI {
     });
   }
 
+  static async getOperators(): Promise<OperatorsResponse> {
+    try {
+      const result = await this.makeSmartFunctionCall<OperatorsResponse>("GET", "/users/operators");
+      console.log(result);
+      return result?.status === 200 ? result : {
+        isOperator: false,
+        address: "",
+        assets: [],
+        balances: {},
+        transactions: [],
+        operators: [],
+        message: "Error fetching operators",
+        status: 400,
+      };
+    } catch (error) {
+      console.error("Failed to fetch operators:", error);
+      return {
+        isOperator: false,
+        address: "",
+        assets: [],
+        balances: {},
+        transactions: [],
+        operators: [],
+        message: "",
+        status: 400,
+      };
+    }
+  }
+
+  static async addOperator(address: string): Promise<OperatorsResponse> {
+    return this.makeSmartFunctionCall<OperatorsResponse>("POST", "/users/operators", {
+      address,
+    });
+  }
+
+  static async removeOperator(address: string): Promise<OperatorsResponse> {
+    return this.makeSmartFunctionCall<OperatorsResponse>("DELETE", "/users/operators", {
+      address,
+    });
+  }
+
   static async getMyWallet(): Promise<WalletResponse> {
     try {
       const result = await this.makeSmartFunctionCall<WalletResponse>("GET", `/users/me`);
@@ -119,6 +160,7 @@ export class DexAPI {
     } catch (error) {
       console.error("Failed to fetch user balances:", error);
       return {
+        isOperator: false,
         address: "",
         assets: [],
         balances: {},
@@ -129,10 +171,7 @@ export class DexAPI {
 
   static async getMyBalances(): Promise<UserBalance> {
     try {
-      const result = await this.makeSmartFunctionCall<UserBalance>(
-        "GET",
-        `/users/me/balances`,
-      );
+      const result = await this.makeSmartFunctionCall<UserBalance>("GET", `/users/me/balances`);
       return result || {};
     } catch (error) {
       console.error("Failed to fetch user balances:", error);
@@ -165,7 +204,10 @@ export class DexAPI {
 
   static async getUserTransactions(address: string): Promise<Transaction[]> {
     try {
-      const result = await this.makeSmartFunctionCall<Transaction[]>("GET", `/users/${address}/txs`);
+      const result = await this.makeSmartFunctionCall<Transaction[]>(
+        "GET",
+        `/users/${address}/txs`,
+      );
       return Array.isArray(result) ? result : [];
     } catch (error) {
       console.error("Failed to fetch transactions:", error);
@@ -173,18 +215,12 @@ export class DexAPI {
     }
   }
 
-  static async buyTokens(data: {
-    symbol: string;
-    amount: number;
-  }): Promise<BuyResult> {
+  static async buyTokens(data: { symbol: string; amount: number }): Promise<BuyResult> {
     console.log(data);
     return this.makeSmartFunctionCall<BuyResult>("POST", "/buy", data);
   }
 
-  static async sellTokens(data: {
-    symbol: string;
-    amount: number;
-  }): Promise<SellResult> {
+  static async sellTokens(data: { symbol: string; amount: number }): Promise<SellResult> {
     return this.makeSmartFunctionCall<SellResult>("POST", "/sell", data);
   }
 

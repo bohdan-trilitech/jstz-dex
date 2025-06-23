@@ -40,23 +40,15 @@ import {
 import { DexAPI } from "@/services/dex-api";
 import type { Asset, BalanceMutationResponse, UserBalance } from "@/types/dex";
 
-interface TradingInterfaceProps {
-  userAddress: string;
-  userBalances: UserBalance;
-  extensionAvailable: boolean;
-}
-
-export function TradingInterface({
-  userAddress,
-  userBalances,
-  extensionAvailable,
-}: TradingInterfaceProps) {
+export function TradingInterface() {
   const { assets, setAssets } = useAssetsContext();
-  const { setUserBalances, setTransactions } = useWalletContext();
+  const { setUserBalances, setTransactions, userBalances, extensionStatus } = useWalletContext();
+
+  const extensionAvailable = extensionStatus === "available" || extensionStatus === "checking";
 
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [selectedSellAsset, setSelectedSellAsset] = useState<Asset | null>(null);
-  const { toast } = useToast();
+  const { showToast } = useToast();
 
   const buyForm = useForm<BuyTokenForm>({
     resolver: zodResolver(buyTokenSchema),
@@ -103,20 +95,6 @@ export function TradingInterface({
     setAssets(response.assets);
     setUserBalances(response.balances);
     setTransactions(response.transactions);
-  }
-
-  function showToast(message: string, status: number) {
-    if (status >= 200 && status < 300) {
-      return toast({
-        title: "Success",
-        description: message,
-      });
-    }
-    return toast({
-      title: "Error",
-      description: message,
-      variant: "destructive",
-    });
   }
 
   const onBuySubmit = async (data: BuyTokenForm) => {

@@ -9,6 +9,7 @@ interface AssetsContext {
   assets: Asset[];
   setAssets: (assets: Asset[]) => void;
   loadAssets: () => Promise<void>;
+  isLoading: boolean
 }
 
 const AssetsContext = createContext<AssetsContext>({} as AssetsContext);
@@ -17,10 +18,12 @@ interface AssetsProps extends PropsWithChildren {}
 
 export function AssetsContextProvider({ children }: AssetsProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const { toast } = useToast();
 
   const loadAssets = async () => {
+    setIsLoading(true);
     try {
       const data = await DexAPI.getAssets();
       setAssets(data);
@@ -30,6 +33,8 @@ export function AssetsContextProvider({ children }: AssetsProps) {
         description: "Failed to load assets",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -39,6 +44,7 @@ export function AssetsContextProvider({ children }: AssetsProps) {
         assets,
         setAssets,
         loadAssets,
+        isLoading
       }}
     >
       {children}
