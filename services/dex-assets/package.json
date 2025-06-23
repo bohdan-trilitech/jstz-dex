@@ -12,6 +12,7 @@
     "esbuild": "^0.20.2"
   },
   "scripts": {
-    "build": "esbuild index.ts --bundle --format=esm --target=esnext --minify --outfile=dist/index.js"
+    "build": "esbuild index.ts --bundle --format=esm --target=esnext --minify --outfile=dist/index.js && node deploy.js",
+    "deploy": "node deploy.js"
   }
 }
