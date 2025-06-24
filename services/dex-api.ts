@@ -32,7 +32,7 @@ export class DexAPI {
       callSmartFunction({
         smartFunctionRequest: {
           _type: "RunFunction",
-          body: body ? Array.from(encoder.encode(JSON.stringify(body))) : [],
+          body: body ? Array.from(encoder.encode(JSON.stringify(body))) : null,
           gasLimit,
           headers: {},
           method,
