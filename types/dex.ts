@@ -24,34 +24,36 @@ export interface Transaction {
   time: number;
 }
 
-
 export interface MessageResponse {
   message: string;
-  status: number
+  status: number;
 }
 
 export interface AssetMutatingResponse extends MessageResponse {
   assets: Asset[];
 }
 
-export interface BalanceMutationResponse extends AssetMutatingResponse {
-  balances: UserBalance;
-  transactions: Transaction[];
-}
+export interface BalanceMutationResponse extends WalletResponse {}
 
 export interface WalletResponse {
+  isOperator: boolean;
+  address: string;
   assets: Asset[];
   balances: UserBalance;
   transactions: Transaction[];
 }
 
-export interface SwapResult extends BalanceMutationResponse {
+export interface SwapResult extends MessageResponse,BalanceMutationResponse {
   valueUsed: number;
 }
 
-export interface BuyResult extends BalanceMutationResponse {
+export interface BuyResult extends MessageResponse,BalanceMutationResponse {
   cost: number;
 }
-export interface SellResult extends BalanceMutationResponse {
-  message: string
+export interface SellResult extends MessageResponse,BalanceMutationResponse {
+  message: string;
+}
+
+export interface OperatorsResponse extends MessageResponse, WalletResponse {
+  operators: string[];
 }

@@ -184,9 +184,24 @@ function useToast() {
     }
   }, [state])
 
+  function showToast(message: string, status: number) {
+    if (status >= 200 && status < 300) {
+      return toast({
+        title: "Success",
+        description: message,
+      });
+    }
+    return toast({
+      title: "Error",
+      description: message,
+      variant: "destructive",
+    });
+  }
+
   return {
     ...state,
     toast,
+    showToast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }

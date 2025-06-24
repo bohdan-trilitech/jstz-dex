@@ -2,15 +2,24 @@ import { AutoRouter, json } from "itty-router";
 import { z } from "zod";
 
 const ONE_TOKEN = 1;
+const SUPER_operator_ADDRESS = "tz1ZXxxkNYSUutm5VZvfudakRxx2mjpWko4J";
 
 // Schemas
 const assetSchema = z.object({
   name: z.string().min(2),
+  issuer: z.string(),
   symbol: z.string().min(1),
-  initialSupply: z.number().min(0),
   basePrice: z.number().min(0),
   slope: z.number().min(0.0001),
+  supply: z.number(),
+  listed: z.boolean(),
 });
+
+const createAssetSchema = assetSchema
+  .extend({
+    initialSupply: z.number().min(0),
+  })
+  .omit({ supply: true, listed: true, issuer: true });
 
 const transactionSchema = z.object({
   type: z.enum(["buy", "sell", "swap", "list", "unlist"]),
@@ -28,27 +37,23 @@ const transactionSchema = z.object({
 const buySchema = z.object({
   symbol: z.string(),
   amount: z.number().min(1),
-  address: z.string(),
 });
 
 const swapSchema = z.object({
   fromSymbol: z.string(),
   toSymbol: z.string(),
   amount: z.number().min(1),
-  address: z.string(),
 });
 
 const sellSchema = z.object({
   symbol: z.string(),
   amount: z.number().min(1),
-  address: z.string(),
 });
 
-const listAssetSchema = z.object({
-  symbol: z.string(),
-  address: z.string(),
-  basePrice: z.number().min(0),
-  slope: z.number().min(0.0001),
+const listAssetSchema = assetSchema.pick({
+  symbol: true,
+  basePrice: true,
+  slope: true,
 });
 
 const messageResponseSchema = z.object({
@@ -56,14 +61,7 @@ const messageResponseSchema = z.object({
 });
 
 const assetMutatingResponseSchema = z.object({
-  assets: z.array(
-    assetSchema
-      .extend({
-        supply: z.number(),
-        listed: z.boolean(),
-      })
-      .omit({ initialSupply: true }),
-  ),
+  assets: z.array(assetSchema),
 });
 
 const balanceMutationResponseSchema = z.object({
@@ -71,14 +69,9 @@ const balanceMutationResponseSchema = z.object({
 });
 
 const walletMetadataSchema = balanceMutationResponseSchema.extend({
-  assets: z.array(
-    assetSchema
-      .extend({
-        supply: z.number(),
-        listed: z.boolean(),
-      })
-      .omit({ initialSupply: true }),
-  ),
+  isOperator: z.boolean().optional(),
+  address: z.string(),
+  assets: z.array(assetSchema),
   transactions: z.array(transactionSchema),
 });
 
@@ -93,6 +86,22 @@ const buyResponseSchema = messageResponseSchema.extend({
 const router = AutoRouter();
 
 // Helpers
+function getCaller(req: Request) {
+  return req.headers.get("referer") as string;
+}
+
+async function getOperators() {
+  const operatorAddresses = await Kv.get<string>("operators");
+  if (!operatorAddresses) return [];
+  return JSON.parse(operatorAddresses) as string[];
+}
+
+async function isOperator(address: string) {
+  const operators = await getOperators();
+
+  return address === SUPER_operator_ADDRESS || operators.includes(address);
+}
+
 async function updateUserBalance(address: string, symbol: string, delta: number) {
   const balanceKey = `balances/${address}/${symbol}`;
   const indexKey = `balances/${address}`;
@@ -163,6 +172,8 @@ async function addWalletMetadata(address: string, response?: Record<string, unkn
   const transactions = await getWalletTransactions(address);
 
   const walletMetaResponse = walletMetadataSchema.parse({
+    isOperator: await isOperator(address),
+    address,
     balances,
     transactions,
     ...assetsResponse,
@@ -170,7 +181,7 @@ async function addWalletMetadata(address: string, response?: Record<string, unkn
 
   console.log("Assets Response:", assetsResponse);
 
-  return { ...walletMetaResponse, ...response };
+  return { ...response, ...walletMetaResponse };
 }
 
 function successResponse(message: any, status = 200) {
@@ -187,8 +198,14 @@ router.get("/assets", async () => {
 });
 
 router.post("/assets/mint", async (request) => {
+  const address = getCaller(request);
+
+  if (!(await isOperator(address))) {
+    return errorResponse("Unauthorized: Only operators can mint assets.");
+  }
+
   const body = await request.json();
-  const parsed = assetSchema.safeParse(body);
+  const parsed = createAssetSchema.safeParse(body);
   if (!parsed.success) return errorResponse(parsed.error.message);
 
   const { name, symbol, initialSupply, basePrice, slope } = parsed.data;
@@ -203,6 +220,7 @@ router.post("/assets/mint", async (request) => {
     basePrice,
     slope,
     listed: true,
+    issuer: address,
   };
   await Kv.set(key, JSON.stringify(asset));
 
@@ -227,11 +245,17 @@ router.get("/assets/:symbol", async (request) => {
 });
 
 router.post("/assets/list", async (request) => {
+  const address = getCaller(request);
+
+  if (!(await isOperator(address))) {
+    return errorResponse("Unauthorized: Only operators can list assets.");
+  }
+
   const body = await request.json();
   const parsed = listAssetSchema.safeParse(body);
   if (!parsed.success) return parsed.error.message;
 
-  const { symbol, address, basePrice, slope } = parsed.data;
+  const { symbol, basePrice, slope } = parsed.data;
   const key = `assets/${symbol}`;
   const data = await Kv.get<string>(key);
   if (!data) return errorResponse("Asset not found.");
@@ -240,6 +264,11 @@ router.post("/assets/list", async (request) => {
   asset.listed = true;
   asset.basePrice = basePrice;
   asset.slope = slope;
+
+  if (asset.issuer !== address) {
+    return errorResponse("Unauthorized: Only the asset issuer can list it.");
+  }
+
   await Kv.set(key, JSON.stringify(asset));
   await logTransaction(address, { type: "list", symbol, basePrice, slope });
 
@@ -249,8 +278,14 @@ router.post("/assets/list", async (request) => {
 });
 
 router.post("/assets/unlist", async (request) => {
+  const address = getCaller(request);
+
+  if (!(await isOperator(address))) {
+    return errorResponse("Unauthorized: Only operators can unlist assets.");
+  }
+
   const body = await request.json();
-  const { symbol, address } = body;
+  const { symbol } = body;
   if (!symbol || !address) return errorResponse("Missing symbol or address.");
 
   const key = `assets/${symbol}`;
@@ -259,6 +294,11 @@ router.post("/assets/unlist", async (request) => {
 
   const asset = JSON.parse(data);
   asset.listed = false;
+
+  if (asset.issuer !== address) {
+    return errorResponse("Unauthorized: Only the asset issuer can unlist it.");
+  }
+
   await Kv.set(key, JSON.stringify(asset));
   await logTransaction(address, { type: "unlist", symbol });
 
@@ -269,13 +309,117 @@ router.post("/assets/unlist", async (request) => {
   );
 });
 
-router.get("/user/:address", async (request) => {
+router.get("/users/operators", async (request) => {
+  const callerAddress = getCaller(request);
+  if (!(await isOperator(callerAddress))) {
+    return errorResponse("Unauthorized: Only operators can manage operator list.");
+  }
+  const operators = await getOperators();
+  return successResponse(
+    await addWalletMetadata(callerAddress, {
+      operators,
+      message: "Fetched operator list successfully.",
+    }),
+  );
+});
+
+router.post("/users/operators", async (request) => {
+  const callerAddress = getCaller(request);
+  if (!(await isOperator(callerAddress))) {
+    return errorResponse("Unauthorized: Only operators can manage operator list.");
+  }
+
+  const body = await request.json();
+  const { address } = body;
+
+  const operators = await getOperators();
+
+  if (operators.includes(address)) {
+    return successResponse(
+      await addWalletMetadata(address, {
+        message: "Address is already an operator.",
+      }),
+    );
+  }
+
+  operators.push(address);
+
+  await Kv.set("operators", JSON.stringify(operators));
+
+  return successResponse(
+    await addWalletMetadata(address, {
+      operators,
+      message: "Address has been added as an operator.",
+    }),
+  );
+});
+
+router.delete("/users/operators", async (request) => {
+  const callerAddress = getCaller(request);
+  if (!(await isOperator(callerAddress))) {
+    return errorResponse("Unauthorized: Only operators can manage operator list.");
+  }
+
+  const body = await request.json();
+  const { address } = body;
+
+  const operators = await getOperators();
+
+  if (!operators.includes(address)) {
+  }
+
+  const index = operators.indexOf(address);
+
+  if (index > -1) {
+    operators.splice(index, 1);
+  } else {
+    return successResponse(
+      await addWalletMetadata(address, {
+        message: "Address is not an operator.",
+      }),
+    );
+  }
+
+  await Kv.set("operators", JSON.stringify(operators));
+
+  return successResponse(
+    await addWalletMetadata(address, {
+      operators,
+      message: "Address has been removed from operators.",
+    }),
+  );
+});
+
+router.get("/users/me", async (request) => {
+  const address = getCaller(request);
+
+  return successResponse(await addWalletMetadata(address));
+});
+
+router.get("/users/me/balances", async (request) => {
+  const address = getCaller(request);
+
+  const balances = await getWalletBalances(address);
+
+  const response = balanceMutationResponseSchema.parse(balances);
+
+  return successResponse(response);
+});
+
+router.get("/users/me/txs", async (request) => {
+  const address = getCaller(request);
+
+  const data = await getWalletTransactions(address);
+  return successResponse(data);
+});
+
+router.get("/users/:address", async (request) => {
   const { address } = request.params;
 
   return successResponse(await addWalletMetadata(address));
 });
 
-router.get("/user/:address/balances", async (request) => {
+router.get("/users/:address/balances", async (request) => {
   const { address } = request.params;
   const balances = await getWalletBalances(address);
 
@@ -284,7 +428,7 @@ router.get("/user/:address/balances", async (request) => {
   return successResponse(response);
 });
 
-router.get("/user/:address/txs", async (request) => {
+router.get("/users/:address/txs", async (request) => {
   const { address } = request.params;
   const data = await getWalletTransactions(address);
   return successResponse(data);
@@ -296,7 +440,9 @@ router.post("/buy", async (request) => {
     const parsed = buySchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.message);
 
-    const { symbol, amount, address } = parsed.data;
+    const address = getCaller(request);
+
+    const { symbol, amount } = parsed.data;
     const key = `assets/${symbol}`;
     const data = await Kv.get(key);
     if (!data) return errorResponse("Asset not found.");
@@ -343,7 +489,9 @@ router.post("/swap", async (request) => {
     const parsed = swapSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.message);
 
-    const { fromSymbol, toSymbol, amount, address } = parsed.data;
+    const address = getCaller(request);
+
+    const { fromSymbol, toSymbol, amount } = parsed.data;
     const fromKey = `assets/${fromSymbol}`;
     const toKey = `assets/${toSymbol}`;
     const fromData = await Kv.get(fromKey);
@@ -413,7 +561,9 @@ router.post("/sell", async (request) => {
     const parsed = sellSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.message);
 
-    const { symbol, amount, address } = parsed.data;
+    const address = getCaller(request);
+
+    const { symbol, amount } = parsed.data;
     const key = `assets/${symbol}`;
     const data = await Kv.get(key);
     if (!data) return errorResponse("Asset not found.");

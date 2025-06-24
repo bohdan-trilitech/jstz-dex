@@ -40,23 +40,15 @@ import {
 import { DexAPI } from "@/services/dex-api";
 import type { Asset, BalanceMutationResponse, UserBalance } from "@/types/dex";
 
-interface TradingInterfaceProps {
-  userAddress: string;
-  userBalances: UserBalance;
-  extensionAvailable: boolean;
-}
-
-export function TradingInterface({
-  userAddress,
-  userBalances,
-  extensionAvailable,
-}: TradingInterfaceProps) {
+export function TradingInterface() {
   const { assets, setAssets } = useAssetsContext();
-  const { setUserBalances, setTransactions } = useWalletContext();
+  const { setUserBalances, setTransactions, userBalances, extensionStatus } = useWalletContext();
+
+  const extensionAvailable = extensionStatus === "available" || extensionStatus === "checking";
 
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [selectedSellAsset, setSelectedSellAsset] = useState<Asset | null>(null);
-  const { toast } = useToast();
+  const { showToast } = useToast();
 
   const buyForm = useForm<BuyTokenForm>({
     resolver: zodResolver(buyTokenSchema),
@@ -105,20 +97,6 @@ export function TradingInterface({
     setTransactions(response.transactions);
   }
 
-  function showToast(message: string, status: number) {
-    if (status >= 200 && status < 300) {
-      return toast({
-        title: "Success",
-        description: message,
-      });
-    }
-    return toast({
-      title: "Error",
-      description: message,
-      variant: "destructive",
-    });
-  }
-
   const onBuySubmit = async (data: BuyTokenForm) => {
     if (!extensionAvailable) {
       showToast("Cannot execute trades while the jstz signer extension is disconnected", 500);
@@ -129,7 +107,6 @@ export function TradingInterface({
       const result = await DexAPI.buyTokens({
         symbol: data.assetSymbol,
         amount: data.amount,
-        address: userAddress,
       });
 
       showToast(`${result.message} Cost: ${result.cost.toFixed(4)}`, result.status);
@@ -152,7 +129,6 @@ export function TradingInterface({
       const result = await DexAPI.sellTokens({
         symbol: data.assetSymbol,
         amount: data.amount,
-        address: userAddress,
       });
 
       showToast(result.message, result.status);
@@ -176,7 +152,6 @@ export function TradingInterface({
         fromSymbol: data.fromSymbol,
         toSymbol: data.toSymbol,
         amount: data.amount,
-        address: userAddress,
       });
 
       showToast(result.message, result.status);
@@ -207,7 +182,7 @@ export function TradingInterface({
     : 0;
 
   // Get user's owned tokens for selling
-  const ownedTokens = Object.entries(userBalances).filter(([_, balance]) => balance > 0);
+  const ownedTokens = Object.entries(userBalances ?? {}).filter(([_, balance]) => balance > 0);
 
   return (
     <Card className="w-full max-w-2xl">
@@ -241,7 +216,7 @@ export function TradingInterface({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {assets.map((asset) => (
+                          {assets?.map((asset) => (
                             <SelectItem key={asset.symbol} value={asset.symbol}>
                               <div className="flex w-full items-center justify-between">
                                 <span>
