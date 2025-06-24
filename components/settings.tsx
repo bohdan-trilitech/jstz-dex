@@ -57,7 +57,7 @@ export function Settings() {
     setLoading(true);
     try {
       const { operators } = await DexAPI.getOperators();
-      setOperators(operators);
+      setOperators(operators ?? []);
     } catch (error) {
       console.error("Failed to load operators:", error);
       showToast(error instanceof Error ? error.message : "Failed to load operators", 500);

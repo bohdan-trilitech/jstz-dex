@@ -13,6 +13,8 @@
   },
   "scripts": {
     "build": "esbuild index.ts --bundle --format=esm --target=esnext --minify --outfile=dist/index.js && node deploy.js",
-    "deploy": "node deploy.js"
+    "deploy:dev": "node deploy.js",
+    "deploy:staging": "jstz deploy dist/index.js -n gcp_v2",
+    "deploy:prod": "jstz deploy dist/index.js -n gcp"
   }
 }

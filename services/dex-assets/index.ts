@@ -70,7 +70,7 @@ const balanceMutationResponseSchema = z.object({
 
 const walletMetadataSchema = balanceMutationResponseSchema.extend({
   isOperator: z.boolean().optional(),
-  address: z.string(),
+  address: z.string().optional(),
   assets: z.array(assetSchema),
   transactions: z.array(transactionSchema),
 });
@@ -170,6 +170,8 @@ async function addWalletMetadata(address: string, response?: Record<string, unkn
 
   const balances = await getWalletBalances(address);
   const transactions = await getWalletTransactions(address);
+
+  console.log('Wallet Address:', address);
 
   const walletMetaResponse = walletMetadataSchema.parse({
     isOperator: await isOperator(address),

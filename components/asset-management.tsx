@@ -33,7 +33,7 @@ import { DexAPI } from "@/services/dex-api";
 
 export function AssetManagement() {
   const { assets, setAssets, loadAssets, isLoading } = useAssetsContext();
-  const { isAdmin, extensionStatus } = useWalletContext();
+  const { isAdmin, extensionStatus, userAddress } = useWalletContext();
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
 
@@ -331,7 +331,7 @@ export function AssetManagement() {
                 </p>
                 <p className="text-muted-foreground text-sm">Base Price: {asset.basePrice}</p>
                 <p className="text-muted-foreground text-sm">Slope: {asset.slope}</p>
-                {isAdmin &&
+                {isAdmin && asset.issuer === userAddress  &&
                   (asset.listed ? (
                     <Button
                       variant="destructive"

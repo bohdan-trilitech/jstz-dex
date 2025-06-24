@@ -5,6 +5,7 @@ export interface Asset {
   basePrice: number;
   slope: number;
   listed: boolean;
+  issuer: string;
 }
 
 export interface UserBalance {
