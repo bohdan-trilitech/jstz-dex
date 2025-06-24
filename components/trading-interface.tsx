@@ -109,7 +109,7 @@ export function TradingInterface() {
         amount: data.amount,
       });
 
-      showToast(`${result.message} Cost: ${result.cost.toFixed(4)}`, result.status);
+      showToast(`${result.message}`, result.status);
 
       buyForm.reset();
 

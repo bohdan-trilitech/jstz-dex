@@ -2,7 +2,7 @@ import { AutoRouter, json } from "itty-router";
 import { z } from "zod";
 
 const ONE_TOKEN = 1;
-const SUPER_operator_ADDRESS = "tz1ZXxxkNYSUutm5VZvfudakRxx2mjpWko4J";
+const SUPER_OPERATOR_ADDRESS = "tz1ZXxxkNYSUutm5VZvfudakRxx2mjpWko4J";
 
 // Schemas
 const assetSchema = z.object({
@@ -99,7 +99,7 @@ async function getOperators() {
 async function isOperator(address: string) {
   const operators = await getOperators();
 
-  return address === SUPER_operator_ADDRESS || operators.includes(address);
+  return address === SUPER_OPERATOR_ADDRESS || operators.includes(address);
 }
 
 async function updateUserBalance(address: string, symbol: string, delta: number) {
@@ -458,6 +458,14 @@ router.post("/buy", async (request) => {
       asset.supply += ONE_TOKEN;
     }
 
+    const tezBalance = await Ledger.balance(address);
+
+    if (tezBalance < totalCost) {
+      return errorResponse("Insufficient tez balance to complete purchase.");
+    }
+
+    await Ledger.transfer(asset.issuer, totalCost);
+
     if (totalCost <= 0) {
       return errorResponse("Buy amount too low to register value.");
     }
@@ -591,6 +599,7 @@ router.post("/sell", async (request) => {
 
     await Kv.set(key, JSON.stringify(asset));
     await updateUserBalance(address, symbol, -amount);
+    await Ledger.transfer(address, totalReturn);
     await logTransaction(address, {
       type: "sell",
       symbol,
