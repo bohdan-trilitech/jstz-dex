@@ -39,6 +39,7 @@ import {
 } from "@/lib/schemas";
 import { DexAPI } from "@/services/dex-api";
 import type { Asset, BalanceMutationResponse, UserBalance } from "@/types/dex";
+import { toTez } from "@/utils/currency.utils";
 
 export function TradingInterface() {
   const { assets, setAssets } = useAssetsContext();
@@ -107,6 +108,7 @@ export function TradingInterface() {
       const result = await DexAPI.buyTokens({
         symbol: data.assetSymbol,
         amount: data.amount,
+        chargeAmount: calculateBuyPrice()
       });
 
       showToast(`${result.message}`, result.status);
@@ -223,7 +225,7 @@ export function TradingInterface() {
                                   {asset.name} ({asset.symbol})
                                 </span>
                                 <Badge variant="secondary">
-                                  {(asset.basePrice + asset.supply * asset.slope).toFixed(4)}
+                                  {toTez(asset.basePrice + asset.supply * asset.slope)}
                                 </Badge>
                               </div>
                             </SelectItem>
@@ -240,10 +242,10 @@ export function TradingInterface() {
                     <div className="flex justify-between">
                       <span>Current Price:</span>
                       <span className="font-mono">
-                        {(
+                        {toTez(
                           selectedAsset.basePrice +
                           selectedAsset.supply * selectedAsset.slope
-                        ).toFixed(4)}
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -252,7 +254,7 @@ export function TradingInterface() {
                     </div>
                     <div className="flex justify-between">
                       <span>Base Price:</span>
-                      <span className="font-mono">{selectedAsset.basePrice}</span>
+                      <span className="font-mono">{toTez(selectedAsset.basePrice)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Slope:</span>
@@ -343,10 +345,10 @@ export function TradingInterface() {
                     <div className="flex justify-between">
                       <span>Current Sell Price:</span>
                       <span className="font-mono">
-                        {(
+                        {toTez(
                           selectedSellAsset.basePrice +
                           (selectedSellAsset.supply - 1) * selectedSellAsset.slope
-                        ).toFixed(4)}
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between">

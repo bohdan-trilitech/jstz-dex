@@ -4,7 +4,7 @@ const path = require('path');
 
 const ENV_FILE_PATH = path.resolve(__dirname, '../../.env');
 
-const JSTZ_DEPLOY_COMMAND = 'jstz deploy dist/index.js  -n dev';
+const JSTZ_DEPLOY_COMMAND = 'jstz deploy dist/index.js -n dev';
 
 console.log(`Executing Jstz deploy command: ${JSTZ_DEPLOY_COMMAND}`);
 

@@ -7,15 +7,21 @@ import {
   BuyResult,
   AssetMutatingResponse,
   WalletResponse,
-  SellResult, OperatorsResponse,
+  SellResult,
+  OperatorsResponse,
 } from "@/types/dex";
+import { toMutez, toTez } from "@/utils/currency.utils";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+const TRANSFER_HEADER = "X-JSTZ-TRANSFER";
+const REFUND_HEADER = "X-JSTZ-AMOUNT";
+
 interface SmartFunctionCallOptions {
   gasLimit?: number;
   baseURL?: string;
+  headers?: Record<string, string>;
 }
 
 export class DexAPI {
@@ -25,7 +31,7 @@ export class DexAPI {
     body?: any,
     options?: SmartFunctionCallOptions,
   ): Promise<T> {
-    const { gasLimit = 100000, baseURL } = options || {};
+    const { gasLimit = 100000, baseURL, headers = {} } = options || {};
 
     const uri = `${baseURL ?? process.env.NEXT_PUBLIC_DEX_BASE_URL}${path ?? ""}`;
     return new Promise((resolve, reject) => {
@@ -34,7 +40,7 @@ export class DexAPI {
           _type: "RunFunction",
           body: body ? Array.from(encoder.encode(JSON.stringify(body))) : null,
           gasLimit,
-          headers: {},
+          headers,
           method,
           uri,
         },
@@ -95,7 +101,20 @@ export class DexAPI {
     basePrice: number;
     slope: number;
   }): Promise<AssetMutatingResponse> {
-    return this.makeSmartFunctionCall<AssetMutatingResponse>("POST", "/assets/mint", data);
+    return this.makeSmartFunctionCall<AssetMutatingResponse>("POST", "/assets/mint", data, {
+      headers: {
+        [TRANSFER_HEADER]: toMutez(
+          this.calculateTokenPrice(
+            {
+              supply: data.initialSupply,
+              basePrice: data.basePrice,
+              slope: data.slope,
+            },
+            data.initialSupply,
+          ),
+        ).toString(),
+      },
+    });
   }
 
   static async listAsset(data: {
@@ -115,17 +134,18 @@ export class DexAPI {
   static async getOperators(): Promise<OperatorsResponse> {
     try {
       const result = await this.makeSmartFunctionCall<OperatorsResponse>("GET", "/users/operators");
-      console.log(result);
-      return result?.status === 200 ? result : {
-        isOperator: false,
-        address: "",
-        assets: [],
-        balances: {},
-        transactions: [],
-        operators: [],
-        message: "Error fetching operators",
-        status: 400,
-      };
+      return result?.status === 200
+        ? result
+        : {
+            isOperator: false,
+            address: "",
+            assets: [],
+            balances: {},
+            transactions: [],
+            operators: [],
+            message: "Error fetching operators",
+            status: 400,
+          };
     } catch (error) {
       console.error("Failed to fetch operators:", error);
       return {
@@ -215,9 +235,16 @@ export class DexAPI {
     }
   }
 
-  static async buyTokens(data: { symbol: string; amount: number }): Promise<BuyResult> {
-    console.log(data);
-    return this.makeSmartFunctionCall<BuyResult>("POST", "/buy", data);
+  static async buyTokens(data: {
+    symbol: string;
+    amount: number;
+    chargeAmount: number;
+  }): Promise<BuyResult> {
+    return this.makeSmartFunctionCall<BuyResult>("POST", "/buy", data, {
+      headers: {
+        [TRANSFER_HEADER]: toMutez(data.chargeAmount).toString(),
+      },
+    });
   }
 
   static async sellTokens(data: { symbol: string; amount: number }): Promise<SellResult> {
@@ -232,20 +259,26 @@ export class DexAPI {
     return this.makeSmartFunctionCall<SwapResult>("POST", "/swap", data);
   }
 
-  static calculateTokenPrice(asset: Asset, quantity = 1): number {
+  static calculateTokenPrice(
+    asset: Pick<Asset, "basePrice" | "slope" | "supply">,
+    amount = 1,
+  ): number {
+    const { basePrice, slope, supply } = asset;
+
     let totalCost = 0;
-    for (let i = 0; i < quantity; i++) {
-      totalCost += asset.basePrice + (asset.supply + i) * asset.slope;
-    }
+    totalCost = amount * (basePrice + supply * slope + (slope * (amount - 1)) / 2);
     return totalCost;
   }
 
-  static calculateSellReturn(asset: Asset, quantity = 1): number {
-    let totalReturn = 0;
-    for (let i = 0; i < quantity; i++) {
-      totalReturn += asset.basePrice + (asset.supply - 1 - i) * asset.slope;
-    }
-    return totalReturn;
+  static calculateSellReturn(
+    asset: Pick<Asset, "basePrice" | "slope" | "supply">,
+    amount = 1,
+  ): number {
+    const { basePrice, slope, supply } = asset;
+
+    let totalCost = 0;
+    totalCost = amount * (basePrice + (supply - 1) * slope - (slope * (amount - 1)) / 2);
+    return totalCost;
   }
 
   static async checkExtensionAvailability(): Promise<boolean> {

@@ -2,18 +2,27 @@ import { AutoRouter, json } from "itty-router";
 import { z } from "zod";
 
 const ONE_TOKEN = 1;
-const SUPER_OPERATOR_ADDRESS = "tz1ZXxxkNYSUutm5VZvfudakRxx2mjpWko4J";
+const ONE_TEZ = 1_000_000; // 1 tez = 1 million mutez
+const SUPER_OPERATOR_ADDRESSES = [
+  "tz1ZXxxkNYSUutm5VZvfudakRxx2mjpWko4J",
+  "tz1iFD91RvV5ALkfqLqMenkYpzFLxPGWXsqF",
+  "tz1SdFUCxB5k7ShemjaMSRBoRFrT98fgA7VY",
+];
+const TRANSFER_HEADER = "X-JSTZ-TRANSFER";
+const REFUND_HEADER = "X-JSTZ-AMOUNT";
 
 // Schemas
 const assetSchema = z.object({
   name: z.string().min(2),
   issuer: z.string(),
-  symbol: z.string().min(1),
-  basePrice: z.number().min(0),
+  symbol: z.string().min(2),
+  basePrice: z.number().min(1),
   slope: z.number().min(0.0001),
   supply: z.number(),
   listed: z.boolean(),
 });
+
+type Asset = z.infer<typeof assetSchema>;
 
 const createAssetSchema = assetSchema
   .extend({
@@ -29,7 +38,7 @@ const transactionSchema = z.object({
   amount: z.number().min(1).optional(),
   received: z.number().min(0).optional(),
   cost: z.number().optional(),
-  basePrice: z.number().min(0).optional(),
+  basePrice: z.number().min(1).optional(),
   slope: z.number().min(0.0001).optional(),
   time: z.number().default(Date.now()),
 });
@@ -99,7 +108,88 @@ async function getOperators() {
 async function isOperator(address: string) {
   const operators = await getOperators();
 
-  return address === SUPER_OPERATOR_ADDRESS || operators.includes(address);
+  return SUPER_OPERATOR_ADDRESSES.includes(address) || operators.includes(address);
+}
+
+function calcTotalCost(
+  type: "buy" | "sell",
+  payload: Pick<Asset, "basePrice" | "slope" | "supply"> & {
+    amount: number;
+  },
+) {
+  const { success, data: calcData } = assetSchema
+    .pick({
+      basePrice: true,
+      slope: true,
+      supply: true,
+    })
+    .extend({ amount: z.number() })
+    .safeParse(payload);
+
+  if (!success) {
+    throw new Error("Invalid asset data for cost calculation");
+  }
+
+  const { basePrice, slope, supply, amount } = calcData;
+
+  let totalCost = 0;
+  if (type === "sell") {
+    totalCost = amount * (basePrice + (supply - 1) * slope - (slope * (amount - 1)) / 2);
+  } else {
+    totalCost = amount * (basePrice + supply * slope + (slope * (amount - 1)) / 2);
+  }
+  return totalCost;
+}
+
+function estimateTokensToSell(
+  payload: Pick<Asset, "basePrice" | "slope" | "supply"> & {
+    targetValue: number;
+    userBalance: number;
+  },
+): number {
+  const { success, data: calcData } = assetSchema
+    .pick({
+      basePrice: true,
+      slope: true,
+      supply: true,
+    })
+    .extend({ targetValue: z.number(), userBalance: z.number() })
+    .safeParse(payload);
+
+  if (!success) {
+    throw new Error("Invalid asset data for cost calculation");
+  }
+
+  const { basePrice, slope, supply, targetValue, userBalance } = calcData;
+
+  const maxSteps = Math.min(userBalance, supply);
+  let low = 1;
+  let high = maxSteps;
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    const value = calcTotalCost("sell", {
+      basePrice,
+      slope,
+      supply,
+      amount: mid,
+    });
+
+    if (value < targetValue) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  const finalValue = calcTotalCost("sell", {
+    basePrice,
+    slope,
+    supply,
+    amount: low,
+  });
+
+  return finalValue >= targetValue ? low : -1;
 }
 
 async function updateUserBalance(address: string, symbol: string, delta: number) {
@@ -171,7 +261,7 @@ async function addWalletMetadata(address: string, response?: Record<string, unkn
   const balances = await getWalletBalances(address);
   const transactions = await getWalletTransactions(address);
 
-  console.log('Wallet Address:', address);
+  console.log("Wallet Address:", address);
 
   const walletMetaResponse = walletMetadataSchema.parse({
     isOperator: await isOperator(address),
@@ -186,12 +276,14 @@ async function addWalletMetadata(address: string, response?: Record<string, unkn
   return { ...response, ...walletMetaResponse };
 }
 
-function successResponse(message: any, status = 200) {
-  return json({ ...message, status }, { status });
+function successResponse(message: any, options?: ResponseInit) {
+  const { status = 200, ...rest } = options || {};
+  return json({ ...message, status }, { status, ...rest });
 }
 
-function errorResponse(message: any, status = 400) {
-  return successResponse({ message }, status);
+function errorResponse(message: any, options?: ResponseInit) {
+  const { status = 400, ...rest } = options || {};
+  return successResponse({ message }, { status, ...rest });
 }
 
 // Routes
@@ -214,6 +306,21 @@ router.post("/assets/mint", async (request) => {
   const key = `assets/${symbol}`;
   const exists = await Kv.get(key);
   if (exists) return errorResponse("Asset already exists.");
+
+  // Calculate bonding curve mint cost
+  const totalCost = calcTotalCost("buy", {
+    basePrice,
+    slope,
+    supply: initialSupply,
+    amount: initialSupply,
+  });
+
+  // Validate incoming transfer header
+  const transferHeader = request.headers.get(TRANSFER_HEADER) ?? "0";
+  const incoming = parseInt(transferHeader);
+  if (incoming < totalCost) {
+    return errorResponse("Insufficient funds to mint asset. Expected at least: " + totalCost);
+  }
 
   const asset = {
     name,
@@ -452,22 +559,21 @@ router.post("/buy", async (request) => {
     const asset = JSON.parse(data);
     if (!asset.listed) return errorResponse("Asset is not listed for purchase.");
 
-    let totalCost = 0;
-    for (let i = 0; i < amount; i++) {
-      totalCost += asset.basePrice + asset.supply * asset.slope;
-      asset.supply += ONE_TOKEN;
-    }
-
-    const tezBalance = await Ledger.balance(address);
-
-    if (tezBalance < totalCost) {
-      return errorResponse("Insufficient tez balance to complete purchase.");
-    }
-
-    await Ledger.transfer(asset.issuer, totalCost);
+    const totalCost = calcTotalCost("buy", {
+      basePrice: asset.basePrice,
+      slope: asset.slope,
+      supply: asset.supply,
+      amount,
+    });
 
     if (totalCost <= 0) {
       return errorResponse("Buy amount too low to register value.");
+    }
+
+    const transferHeader = request.headers.get(TRANSFER_HEADER) ?? "0";
+    const incoming = parseInt(transferHeader);
+    if (incoming < totalCost) {
+      return errorResponse("Insufficient funds to complete purchase. Expected: " + totalCost);
     }
 
     await Kv.set(key, JSON.stringify(asset));
@@ -512,8 +618,10 @@ router.post("/swap", async (request) => {
     const toAsset = JSON.parse(toData ?? "{}");
     if (!fromAsset.listed || !toAsset.listed) return errorResponse("Assets must be listed.");
 
-    const userBalance = await Kv.get(`balances/${address}/${fromSymbol}`);
-    if (!userBalance || parseInt(userBalance) < amount) {
+    const userBalanceRaw = await Kv.get(`balances/${address}/${fromSymbol}`);
+    const userBalance = userBalanceRaw ? parseInt(userBalanceRaw) : 0;
+
+    if (userBalance < amount) {
       return errorResponse("Insufficient balance to swap.");
     }
 
@@ -521,39 +629,43 @@ router.post("/swap", async (request) => {
       return errorResponse("Not enough supply to perform swap.");
     }
 
-    let totalValue = 0;
-    for (let i = 0; i < amount; i++) {
-      fromAsset.supply -= ONE_TOKEN;
-      totalValue += fromAsset.basePrice + fromAsset.supply * fromAsset.slope;
+    const totalReceivedAssetsCost = calcTotalCost("buy", {
+      basePrice: toAsset.basePrice,
+      slope: toAsset.slope,
+      supply: toAsset.supply,
+      amount,
+    });
+
+    const requiredFromAmount = estimateTokensToSell({
+      basePrice: fromAsset.basePrice,
+      slope: fromAsset.slope,
+      supply: fromAsset.supply,
+      targetValue: totalReceivedAssetsCost,
+      userBalance: userBalance,
+    });
+
+    if (requiredFromAmount === -1 || requiredFromAmount > userBalance) {
+      return errorResponse("Insufficient balance to perform this swap.");
     }
 
-    let tokensReceived = 0;
-    let spent = 0;
-    while (spent + toAsset.basePrice + toAsset.supply * toAsset.slope <= totalValue) {
-      spent += toAsset.basePrice + toAsset.supply * toAsset.slope;
-      toAsset.supply += ONE_TOKEN;
-      tokensReceived += ONE_TOKEN;
-    }
-
-    if (tokensReceived === 0) {
-      return errorResponse("Swap value too low to receive any target tokens.");
-    }
+    fromAsset.supply -= requiredFromAmount;
+    toAsset.supply += amount;
 
     await Kv.set(fromKey, JSON.stringify(fromAsset));
     await Kv.set(toKey, JSON.stringify(toAsset));
-    await updateUserBalance(address, fromSymbol, -amount);
-    await updateUserBalance(address, toSymbol, tokensReceived);
+    await updateUserBalance(address, fromSymbol, -requiredFromAmount);
+    await updateUserBalance(address, toSymbol, amount);
     await logTransaction(address, {
       type: "swap",
       fromSymbol,
       toSymbol,
-      amount,
-      received: tokensReceived,
+      amount: requiredFromAmount,
+      received: amount,
     });
 
     const response = swapResponseSchema.parse({
-      message: `Swapped ${amount} ${fromSymbol} for ${tokensReceived} ${toSymbol}.`,
-      valueUsed: spent,
+      message: `Swapped ${requiredFromAmount} ${fromSymbol} for ${amount} ${toSymbol}.`,
+      valueUsed: totalReceivedAssetsCost,
     });
 
     return successResponse(await addWalletMetadata(address, response));
@@ -586,12 +698,12 @@ router.post("/sell", async (request) => {
       return errorResponse("Insufficient balance to sell.");
     }
 
-    // Calculate total return from bonding curve (reverse of buy logic)
-    let totalReturn = 0;
-    for (let i = 0; i < amount; i++) {
-      asset.supply -= ONE_TOKEN;
-      totalReturn += asset.basePrice + asset.supply * asset.slope;
-    }
+    const totalReturn = calcTotalCost("sell", {
+      basePrice: asset.basePrice,
+      slope: asset.slope,
+      supply: asset.supply,
+      amount,
+    });
 
     if (totalReturn <= 0) {
       return errorResponse("Sell amount too low to register value.");
@@ -599,7 +711,6 @@ router.post("/sell", async (request) => {
 
     await Kv.set(key, JSON.stringify(asset));
     await updateUserBalance(address, symbol, -amount);
-    await Ledger.transfer(address, totalReturn);
     await logTransaction(address, {
       type: "sell",
       symbol,
@@ -607,11 +718,15 @@ router.post("/sell", async (request) => {
       cost: -totalReturn,
     });
 
-    return successResponse(
-      await addWalletMetadata(address, {
-        message: `Sold ${amount} ${symbol} for estimated value ${totalReturn.toFixed(2)}`,
-      }),
-    );
+    const metadata = await addWalletMetadata(address, {
+      message: `Sold ${amount} ${symbol} for estimated value ${totalReturn.toFixed(2)}`,
+    });
+
+    return successResponse(metadata, {
+      headers: {
+        [REFUND_HEADER]: totalReturn.toFixed(0),
+      },
+    });
   } catch (err) {
     if (err instanceof Error) {
       return errorResponse(`Error: ${err.message}`);

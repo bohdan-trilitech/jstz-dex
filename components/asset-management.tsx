@@ -30,6 +30,9 @@ import {
 } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 import { DexAPI } from "@/services/dex-api";
+import { toTez } from "@/utils/currency.utils";
+
+const ONE_TEZ = 1000000; // 1 Tez in mutez
 
 export function AssetManagement() {
   const { assets, setAssets, loadAssets, isLoading } = useAssetsContext();
@@ -70,11 +73,15 @@ export function AssetManagement() {
         name: data.name,
         symbol: data.symbol.toUpperCase(),
         initialSupply: data.initialSupply,
-        basePrice: data.basePrice,
+        basePrice: data.basePrice * ONE_TEZ, // Convert to mutez
         slope: data.slope,
       });
 
       showToast(result.message, result.status);
+
+      if (result.status >= 300) {
+        return;
+      }
 
       mintForm.reset();
       setAssets(result.assets);
@@ -92,7 +99,7 @@ export function AssetManagement() {
     try {
       const result = await DexAPI.listAsset({
         symbol: data.symbol.toUpperCase(),
-        basePrice: data.basePrice,
+        basePrice: data.basePrice * ONE_TEZ, // Convert to mutez
         slope: data.slope,
       });
 
@@ -327,9 +334,9 @@ export function AssetManagement() {
                 <p className="text-muted-foreground text-sm">Symbol: {asset.symbol}</p>
                 <p className="text-muted-foreground text-sm">Supply: {asset.supply}</p>
                 <p className="text-muted-foreground text-sm">
-                  Current Price: {(asset.basePrice + asset.supply * asset.slope).toFixed(4)}
+                  Current Price: {toTez(asset.basePrice + asset.supply * asset.slope)}
                 </p>
-                <p className="text-muted-foreground text-sm">Base Price: {asset.basePrice}</p>
+                <p className="text-muted-foreground text-sm">Base Price: {toTez(asset.basePrice)}</p>
                 <p className="text-muted-foreground text-sm">Slope: {asset.slope}</p>
                 {isAdmin && asset.issuer === userAddress  &&
                   (asset.listed ? (
