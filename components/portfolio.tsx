@@ -21,7 +21,9 @@ export function Portfolio() {
   }, []);
 
   const getTezBalance = async () => {
-    const jstzClient = new Jstz();
+    const jstzClient = new Jstz({
+      baseURL: process.env.NEXT_PUBLIC_JSTZ_NODE_ENDPOINT
+    });
     if (!jstzClient) {
       throw new Error("JSTZ client is not initialized");
     }
