@@ -7,8 +7,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWalletContext } from "@/contexts/wallet.context";
 import type { Transaction } from "@/types/dex";
 
+import {Jstz} from "@jstz-dev/jstz-client"
+import { useEffect, useState } from "react";
+import { toTezString } from "@/utils/currency.utils";
+
 export function Portfolio() {
-  const { loading, transactions, userBalances } = useWalletContext();
+  const { loading, transactions, userBalances, userAddress } = useWalletContext();
+
+  const [tezBalance, setTezBalance] = useState<number | null>(null)
+
+  useEffect(() => {
+    void getTezBalance()
+  }, []);
+
+  const getTezBalance = async () => {
+    const jstzClient = new Jstz();
+    if (!jstzClient) {
+      throw new Error("JSTZ client is not initialized");
+    }
+
+    try {
+      const balance = await jstzClient.accounts.getBalance(userAddress);
+      setTezBalance(balance);
+    } catch (error) {
+      console.error("Failed to fetch Tezos balance:", error);
+      return 0;
+    }
+  }
 
   const formatTransactionType = (tx: Transaction) => {
     switch (tx.type) {
@@ -48,9 +73,17 @@ export function Portfolio() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5" />
-            Portfolio Balance
+          <CardTitle className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-5 w-5" />
+              Portfolio Balance
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {userAddress ? `Address: ${userAddress}` : "Connect your wallet to see your portfolio"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {tezBalance ? `Balance: ${toTezString(tezBalance)}` : "Tez balance is unavailable"}
+            </p>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -102,7 +135,7 @@ export function Portfolio() {
                       {new Date(tx.time).toLocaleString()}
                     </p>
                     {tx.cost && (
-                      <p className="text-muted-foreground text-sm">Cost: {tx.cost.toFixed(4)}</p>
+                      <p className="text-muted-foreground text-sm">Cost: {toTezString(tx.cost)}</p>
                     )}
                   </div>
                   <Badge variant={getTransactionBadgeVariant(tx.type)}>

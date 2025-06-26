@@ -1,18 +1,19 @@
 import { z } from "zod"
+const ONE_TEZ = 1000000; // 1 Tez in mutez
 
 // Asset schemas
 export const mintAssetSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters long"),
-  symbol: z.string().min(1, "Symbol is required").max(10, "Symbol must be 10 characters or less"),
+  symbol: z.string().min(2, "Symbol is required").max(10, "Symbol must be 10 characters or less"),
   initialSupply: z.coerce.number().min(0, "Initial supply must be 0 or greater"),
-  basePrice: z.coerce.number().min(0, "Base price must be greater than 0"),
-  slope: z.coerce.number().min(0.0001, "Slope must be at least 0.0001"),
+  basePrice: z.coerce.number().min(1/ONE_TEZ, "Base price must be greater than 0"),
+  slope: z.coerce.number().min(0.0001, "Slope must be at least 0.000001"),
 })
 
 export const listAssetSchema = z.object({
   symbol: z.string().min(1, "Symbol is required"),
-  basePrice: z.coerce.number().min(0, "Base price must be greater than 0"),
-  slope: z.coerce.number().min(0.0001, "Slope must be at least 0.0001"),
+  basePrice: z.coerce.number().min(1/ONE_TEZ, "Base price must be greater than 0"),
+  slope: z.coerce.number().min(0.0001, "Slope must be at least 0.000001"),
 })
 
 // Trading schemas

@@ -30,13 +30,16 @@ import {
 } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 import { DexAPI } from "@/services/dex-api";
-import { toTez } from "@/utils/currency.utils";
+import { toMutez, toTez, toTezString } from "@/utils/currency.utils";
+import { Jstz } from "@jstz-dev/jstz-client";
 
 const ONE_TEZ = 1000000; // 1 Tez in mutez
 
 export function AssetManagement() {
   const { assets, setAssets, loadAssets, isLoading } = useAssetsContext();
   const { isAdmin, extensionStatus, userAddress } = useWalletContext();
+  const [tezBalance, setTezBalance] = useState<number | null>(null)
+
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
 
@@ -48,8 +51,8 @@ export function AssetManagement() {
       name: "",
       symbol: "",
       initialSupply: 0,
-      basePrice: 0.0001,
-      slope: 0.0001,
+      basePrice: 0.1,
+      slope: 0.01,
     },
   });
 
@@ -57,10 +60,34 @@ export function AssetManagement() {
     resolver: zodResolver(listAssetSchema),
     defaultValues: {
       symbol: "",
-      basePrice: 0.0001,
-      slope: 0.0001,
+      basePrice: 0.1,
+      slope:0.01,
     },
   });
+
+
+  useEffect(() => {
+    void getTezBalance()
+  }, []);
+
+  const getTezBalance = async () => {
+    const jstzClient = new Jstz();
+    if (!jstzClient) {
+      throw new Error("JSTZ client is not initialized");
+    }
+
+    try {
+      const dexURL = process.env.NEXT_PUBLIC_DEX_BASE_URL;
+      if (dexURL) {
+        const dexAddress = dexURL.substring(dexURL.indexOf(":") + 3, dexURL.length);
+        const balance = await jstzClient.accounts.getBalance(dexAddress);
+        setTezBalance(balance);
+      }
+    } catch (error) {
+      console.error("Failed to fetch Tezos balance:", error);
+      return 0;
+    }
+  }
 
   const onMintSubmit = async (data: MintAssetForm) => {
     if (!extensionAvailable) {
@@ -68,12 +95,14 @@ export function AssetManagement() {
       return;
     }
 
+    console.log(data)
+
     try {
       const result = await DexAPI.mintAsset({
         name: data.name,
         symbol: data.symbol.toUpperCase(),
         initialSupply: data.initialSupply,
-        basePrice: data.basePrice * ONE_TEZ, // Convert to mutez
+        basePrice: toMutez(data.basePrice),
         slope: data.slope,
       });
 
@@ -85,6 +114,8 @@ export function AssetManagement() {
 
       mintForm.reset();
       setAssets(result.assets);
+
+      void getTezBalance()
     } catch (error) {
       showToast( error instanceof Error ? error.message : "Failed to mint asset", 500);
     }
@@ -270,7 +301,7 @@ export function AssetManagement() {
                           <FormItem>
                             <FormLabel>Base Price</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.0001" placeholder="0.0001" {...field} />
+                              <Input type="number" step={1 / ONE_TEZ} placeholder={(1 / ONE_TEZ).toString()} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -284,7 +315,7 @@ export function AssetManagement() {
                           <FormItem>
                             <FormLabel>Slope</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.0001" placeholder="0.0001" {...field} />
+                              <Input type="number" step={1 / ONE_TEZ} placeholder={(1 / ONE_TEZ).toString()} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -315,10 +346,16 @@ export function AssetManagement() {
       <Card>
         <CardHeader>
           <CardTitle>
-            Assets{" "}
-            <Button disabled={isLoading} variant="link" onClick={loadAssets}>
-              <RefreshCw className={cn(isLoading && "animate-spin")} />
-            </Button>
+            <div className="flex items-center gap-2">
+              Assets{" "}
+              <Button disabled={isLoading} variant="link" onClick={loadAssets}>
+                <RefreshCw className={cn(isLoading && "animate-spin")} />
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {tezBalance ? `DEX vault balance: ${toTezString(tezBalance)}` : "Tez balance is unavailable"}
+            </p>
+
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -334,9 +371,9 @@ export function AssetManagement() {
                 <p className="text-muted-foreground text-sm">Symbol: {asset.symbol}</p>
                 <p className="text-muted-foreground text-sm">Supply: {asset.supply}</p>
                 <p className="text-muted-foreground text-sm">
-                  Current Price: {toTez(asset.basePrice + asset.supply * asset.slope)}
+                  Current Price: {toTezString(asset.basePrice + asset.supply * asset.slope)}
                 </p>
-                <p className="text-muted-foreground text-sm">Base Price: {toTez(asset.basePrice)}</p>
+                <p className="text-muted-foreground text-sm">Base Price: {toTezString(asset.basePrice)}</p>
                 <p className="text-muted-foreground text-sm">Slope: {asset.slope}</p>
                 {isAdmin && asset.issuer === userAddress  &&
                   (asset.listed ? (

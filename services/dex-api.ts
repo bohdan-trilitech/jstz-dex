@@ -1,16 +1,10 @@
 import { callSmartFunction, checkExtensionAvailability } from "@/lib/jstz-signer.service";
-import {
-  Asset,
-  UserBalance,
-  Transaction,
-  SwapResult,
-  BuyResult,
-  AssetMutatingResponse,
-  WalletResponse,
-  SellResult,
-  OperatorsResponse,
-} from "@/types/dex";
+import { Asset, UserBalance, Transaction, SwapResult, BuyResult, AssetMutatingResponse, WalletResponse, SellResult, OperatorsResponse } from "@/types/dex";
 import { toMutez, toTez } from "@/utils/currency.utils";
+
+
+
+
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -80,13 +74,21 @@ export class DexAPI {
     });
   }
 
-  static async getAssets(): Promise<Asset[]> {
+  static async getAssets(): Promise<AssetMutatingResponse> {
     try {
-      const result = await this.makeSmartFunctionCall<Asset[]>("GET", "/assets");
-      return Array.isArray(result) ? result : [];
+      const result = await this.makeSmartFunctionCall<AssetMutatingResponse>("GET", "/assets");
+      return Array.isArray(result) ? result : {
+        status: 400,
+        message: "Error fetching assets",
+        assets: [],
+      };
     } catch (error) {
       console.error("Failed to fetch assets:", error);
-      return [];
+      return {
+        status: 400,
+        message: "Error fetching assets",
+        assets: [],
+      };
     }
   }
 
@@ -101,19 +103,22 @@ export class DexAPI {
     basePrice: number;
     slope: number;
   }): Promise<AssetMutatingResponse> {
-    return this.makeSmartFunctionCall<AssetMutatingResponse>("POST", "/assets/mint", data, {
-      headers: {
-        [TRANSFER_HEADER]: toMutez(
-          this.calculateTokenPrice(
-            {
-              supply: data.initialSupply,
-              basePrice: data.basePrice,
-              slope: data.slope,
-            },
-            data.initialSupply,
-          ),
-        ).toString(),
+    const transferAmount = this.calculateTokenPrice(
+      {
+        supply: data.initialSupply,
+        basePrice: data.basePrice,
+        slope: data.slope,
       },
+      data.initialSupply,
+    );
+
+    console.log("Minting asset with transfer amount:", transferAmount);
+    const headers: Record<string, string> = {};
+    if (transferAmount > 0) {
+      headers[TRANSFER_HEADER] = (transferAmount).toFixed(0);
+    }
+    return this.makeSmartFunctionCall<AssetMutatingResponse>("POST", "/assets/mint", data, {
+      headers,
     });
   }
 
@@ -240,9 +245,11 @@ export class DexAPI {
     amount: number;
     chargeAmount: number;
   }): Promise<BuyResult> {
+    console.log("Buying tokens:", data);
+    console.log(toMutez(data.chargeAmount).toFixed(0));
     return this.makeSmartFunctionCall<BuyResult>("POST", "/buy", data, {
       headers: {
-        [TRANSFER_HEADER]: toMutez(data.chargeAmount).toString(),
+        [TRANSFER_HEADER]: toMutez(data.chargeAmount).toFixed(0),
       },
     });
   }
@@ -267,7 +274,7 @@ export class DexAPI {
 
     let totalCost = 0;
     totalCost = amount * (basePrice + supply * slope + (slope * (amount - 1)) / 2);
-    return totalCost;
+    return +(totalCost).toFixed(0);
   }
 
   static calculateSellReturn(
@@ -278,7 +285,7 @@ export class DexAPI {
 
     let totalCost = 0;
     totalCost = amount * (basePrice + (supply - 1) * slope - (slope * (amount - 1)) / 2);
-    return totalCost;
+    return +(totalCost).toFixed(0);
   }
 
   static async checkExtensionAvailability(): Promise<boolean> {

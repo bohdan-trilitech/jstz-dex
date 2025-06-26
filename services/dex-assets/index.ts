@@ -9,14 +9,15 @@ const SUPER_OPERATOR_ADDRESSES = [
   "tz1SdFUCxB5k7ShemjaMSRBoRFrT98fgA7VY",
 ];
 const TRANSFER_HEADER = "X-JSTZ-TRANSFER";
-const REFUND_HEADER = "X-JSTZ-AMOUNT";
+const RECEIVE_HEADER = "X-JSTZ-AMOUNT";
+const ERROR_FEE = 1000; // Error fee in mutez
 
 // Schemas
 const assetSchema = z.object({
   name: z.string().min(2),
   issuer: z.string(),
   symbol: z.string().min(2),
-  basePrice: z.number().min(1),
+  basePrice: z.number().min(1 / ONE_TEZ),
   slope: z.number().min(0.0001),
   supply: z.number(),
   listed: z.boolean(),
@@ -38,7 +39,10 @@ const transactionSchema = z.object({
   amount: z.number().min(1).optional(),
   received: z.number().min(0).optional(),
   cost: z.number().optional(),
-  basePrice: z.number().min(1).optional(),
+  basePrice: z
+    .number()
+    .min(1 / ONE_TEZ)
+    .optional(),
   slope: z.number().min(0.0001).optional(),
   time: z.number().default(Date.now()),
 });
@@ -138,7 +142,7 @@ function calcTotalCost(
   } else {
     totalCost = amount * (basePrice + supply * slope + (slope * (amount - 1)) / 2);
   }
-  return totalCost;
+  return +(totalCost).toFixed(0);
 }
 
 function estimateTokensToSell(
@@ -276,6 +280,15 @@ async function addWalletMetadata(address: string, response?: Record<string, unkn
   return { ...response, ...walletMetaResponse };
 }
 
+function addErrorRefundHeader(transferAmount: number) {
+  const refundAmount = Math.max(0, transferAmount - ERROR_FEE);
+  return {
+    headers: {
+      [RECEIVE_HEADER]: refundAmount.toFixed(0),
+    },
+  };
+}
+
 function successResponse(message: any, options?: ResponseInit) {
   const { status = 200, ...rest } = options || {};
   return json({ ...message, status }, { status, ...rest });
@@ -292,20 +305,32 @@ router.get("/assets", async () => {
 });
 
 router.post("/assets/mint", async (request) => {
+  // Validate incoming transfer header
+  const transferHeader = request.headers.get(RECEIVE_HEADER) ?? "0";
+  const incomingTransfer = parseInt(transferHeader);
+
   const address = getCaller(request);
 
   if (!(await isOperator(address))) {
-    return errorResponse("Unauthorized: Only operators can mint assets.");
+    return errorResponse("Unauthorized: Only operators can mint assets.", {
+      ...addErrorRefundHeader(incomingTransfer),
+    });
   }
-
   const body = await request.json();
   const parsed = createAssetSchema.safeParse(body);
-  if (!parsed.success) return errorResponse(parsed.error.message);
+  if (!parsed.success)
+    return errorResponse(parsed.error.message, {
+      ...addErrorRefundHeader(incomingTransfer),
+
+    });
 
   const { name, symbol, initialSupply, basePrice, slope } = parsed.data;
   const key = `assets/${symbol}`;
   const exists = await Kv.get(key);
-  if (exists) return errorResponse("Asset already exists.");
+  if (exists)
+    return errorResponse("Asset already exists.", {
+      ...addErrorRefundHeader(incomingTransfer),
+    });
 
   // Calculate bonding curve mint cost
   const totalCost = calcTotalCost("buy", {
@@ -315,13 +340,15 @@ router.post("/assets/mint", async (request) => {
     amount: initialSupply,
   });
 
-  // Validate incoming transfer header
-  const transferHeader = request.headers.get(TRANSFER_HEADER) ?? "0";
-  const incoming = parseInt(transferHeader);
-  if (incoming < totalCost) {
-    return errorResponse("Insufficient funds to mint asset. Expected at least: " + totalCost);
-  }
+  if (incomingTransfer < totalCost) {
+    return errorResponse(
+      `Insufficient funds to mint asset. Expected at least: ${totalCost} tez. Transferred: ${incomingTransfer} tez`,
+      {
+        ...addErrorRefundHeader(incomingTransfer),
 
+      },
+    );
+  }
   const asset = {
     name,
     symbol,
@@ -545,19 +572,26 @@ router.get("/users/:address/txs", async (request) => {
 
 router.post("/buy", async (request) => {
   try {
+    const transferHeader = request.headers.get(RECEIVE_HEADER) ?? "0";
+    const incoming = parseInt(transferHeader);
+
     const body = await request.json();
     const parsed = buySchema.safeParse(body);
-    if (!parsed.success) return errorResponse(parsed.error.message);
+    if (!parsed.success) return errorResponse(parsed.error.message, {
+      headers: {
+        [TRANSFER_HEADER]: transferHeader,
+      },
+    });
 
     const address = getCaller(request);
 
     const { symbol, amount } = parsed.data;
     const key = `assets/${symbol}`;
     const data = await Kv.get(key);
-    if (!data) return errorResponse("Asset not found.");
+    if (!data) return errorResponse("Asset not found.", addErrorRefundHeader(incoming));
 
     const asset = JSON.parse(data);
-    if (!asset.listed) return errorResponse("Asset is not listed for purchase.");
+    if (!asset.listed) return errorResponse("Asset is not listed for purchase.", addErrorRefundHeader(incoming));
 
     const totalCost = calcTotalCost("buy", {
       basePrice: asset.basePrice,
@@ -566,14 +600,15 @@ router.post("/buy", async (request) => {
       amount,
     });
 
+    asset.supply += amount
+
     if (totalCost <= 0) {
-      return errorResponse("Buy amount too low to register value.");
+      return errorResponse("Buy amount too low to register value.", addErrorRefundHeader(incoming));
     }
 
-    const transferHeader = request.headers.get(TRANSFER_HEADER) ?? "0";
-    const incoming = parseInt(transferHeader);
+
     if (incoming < totalCost) {
-      return errorResponse("Insufficient funds to complete purchase. Expected: " + totalCost);
+      return errorResponse("§fficient funds to complete purchase. Expected: " + totalCost, addErrorRefundHeader(incoming));
     }
 
     await Kv.set(key, JSON.stringify(asset));
@@ -621,10 +656,6 @@ router.post("/swap", async (request) => {
     const userBalanceRaw = await Kv.get(`balances/${address}/${fromSymbol}`);
     const userBalance = userBalanceRaw ? parseInt(userBalanceRaw) : 0;
 
-    if (userBalance < amount) {
-      return errorResponse("Insufficient balance to swap.");
-    }
-
     if (fromAsset.supply < amount) {
       return errorResponse("Not enough supply to perform swap.");
     }
@@ -645,7 +676,7 @@ router.post("/swap", async (request) => {
     });
 
     if (requiredFromAmount === -1 || requiredFromAmount > userBalance) {
-      return errorResponse("Insufficient balance to perform this swap.");
+      return errorResponse(`Insufficient balance to perform this swap. Required: ${requiredFromAmount}, Available: ${userBalance}. Total cost: ${totalReceivedAssetsCost}.`);
     }
 
     fromAsset.supply -= requiredFromAmount;
@@ -709,6 +740,8 @@ router.post("/sell", async (request) => {
       return errorResponse("Sell amount too low to register value.");
     }
 
+    asset.supply -= amount;
+
     await Kv.set(key, JSON.stringify(asset));
     await updateUserBalance(address, symbol, -amount);
     await logTransaction(address, {
@@ -718,13 +751,14 @@ router.post("/sell", async (request) => {
       cost: -totalReturn,
     });
 
+
     const metadata = await addWalletMetadata(address, {
       message: `Sold ${amount} ${symbol} for estimated value ${totalReturn.toFixed(2)}`,
     });
 
     return successResponse(metadata, {
       headers: {
-        [REFUND_HEADER]: totalReturn.toFixed(0),
+        [TRANSFER_HEADER]: totalReturn.toFixed(0),
       },
     });
   } catch (err) {

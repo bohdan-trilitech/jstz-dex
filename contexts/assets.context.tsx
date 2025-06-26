@@ -20,19 +20,15 @@ export function AssetsContextProvider({ children }: AssetsProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { toast } = useToast();
+  const { showToast } = useToast();
 
   const loadAssets = async () => {
     setIsLoading(true);
     try {
       const data = await DexAPI.getAssets();
-      setAssets(data);
+      setAssets(data?.assets);
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load assets",
-        variant: "destructive",
-      });
+      showToast(error instanceof Error ? error.message : "Failed to list assets", 500);
     } finally {
       setIsLoading(false);
     }

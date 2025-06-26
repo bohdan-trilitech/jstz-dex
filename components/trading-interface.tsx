@@ -39,7 +39,7 @@ import {
 } from "@/lib/schemas";
 import { DexAPI } from "@/services/dex-api";
 import type { Asset, BalanceMutationResponse, UserBalance } from "@/types/dex";
-import { toTez } from "@/utils/currency.utils";
+import { toMutez, toTez, toTezString } from "@/utils/currency.utils";
 
 export function TradingInterface() {
   const { assets, setAssets } = useAssetsContext();
@@ -108,12 +108,13 @@ export function TradingInterface() {
       const result = await DexAPI.buyTokens({
         symbol: data.assetSymbol,
         amount: data.amount,
-        chargeAmount: calculateBuyPrice()
+        chargeAmount: toTez(calculateBuyPrice())
       });
 
       showToast(`${result.message}`, result.status);
 
       buyForm.reset();
+      setSelectedAsset(null)
 
       void updateMeta(result);
     } catch (error) {
@@ -136,6 +137,7 @@ export function TradingInterface() {
       showToast(result.message, result.status);
 
       sellForm.reset();
+      setSelectedAsset(null)
 
       void updateMeta(result);
     } catch (error) {
@@ -167,6 +169,7 @@ export function TradingInterface() {
 
   const calculateBuyPrice = () => {
     if (!selectedAsset || !buyForm.watch("amount")) return 0;
+    console.log("Calculating buy price for asset:", selectedAsset, "amount:", buyForm.watch("amount"));
     return DexAPI.calculateTokenPrice(selectedAsset, buyForm.watch("amount"));
   };
 
@@ -211,7 +214,7 @@ export function TradingInterface() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Select Asset</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Choose an asset to buy" />
@@ -225,7 +228,7 @@ export function TradingInterface() {
                                   {asset.name} ({asset.symbol})
                                 </span>
                                 <Badge variant="secondary">
-                                  {toTez(asset.basePrice + asset.supply * asset.slope)}
+                                  {toTezString(asset.basePrice + asset.supply * asset.slope)}
                                 </Badge>
                               </div>
                             </SelectItem>
@@ -242,7 +245,7 @@ export function TradingInterface() {
                     <div className="flex justify-between">
                       <span>Current Price:</span>
                       <span className="font-mono">
-                        {toTez(
+                        {toTezString(
                           selectedAsset.basePrice +
                           selectedAsset.supply * selectedAsset.slope
                         )}
@@ -254,7 +257,7 @@ export function TradingInterface() {
                     </div>
                     <div className="flex justify-between">
                       <span>Base Price:</span>
-                      <span className="font-mono">{toTez(selectedAsset.basePrice)}</span>
+                      <span className="font-mono">{toTezString(selectedAsset.basePrice)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Slope:</span>
@@ -281,7 +284,7 @@ export function TradingInterface() {
                   <div className="bg-muted rounded-lg p-4">
                     <div className="flex justify-between font-semibold">
                       <span>Total Cost:</span>
-                      <span className="font-mono">{calculateBuyPrice().toFixed(4)}</span>
+                      <span className="font-mono">{toTezString(calculateBuyPrice())}</span>
                     </div>
                   </div>
                 )}
@@ -345,7 +348,7 @@ export function TradingInterface() {
                     <div className="flex justify-between">
                       <span>Current Sell Price:</span>
                       <span className="font-mono">
-                        {toTez(
+                        {toTezString(
                           selectedSellAsset.basePrice +
                           (selectedSellAsset.supply - 1) * selectedSellAsset.slope
                         )}
@@ -490,7 +493,6 @@ export function TradingInterface() {
                         <Input
                           type="number"
                           placeholder="Enter amount to swap"
-                          max={maxSwapAmount}
                           {...field}
                         />
                       </FormControl>
