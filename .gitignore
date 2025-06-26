@@ -25,5 +25,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-/services/dex-assets/dist
+/services/dex-assets/dist/*
 /services/dex-assets/node_modules
