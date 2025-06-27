@@ -608,7 +608,7 @@ router.post("/buy", async (request) => {
 
 
     if (incoming < totalCost) {
-      return errorResponse("§fficient funds to complete purchase. Expected: " + totalCost, addErrorRefundHeader(incoming));
+      return errorResponse("Insufficient funds to complete purchase. Expected: " + totalCost, addErrorRefundHeader(incoming));
     }
 
     await Kv.set(key, JSON.stringify(asset));
@@ -753,7 +753,7 @@ router.post("/sell", async (request) => {
 
 
     const metadata = await addWalletMetadata(address, {
-      message: `Sold ${amount} ${symbol} for estimated value ${totalReturn.toFixed(2)}`,
+      message: `Sold ${amount} ${symbol} for estimated value ${totalReturn.toFixed(0)}`,
     });
 
     return successResponse(metadata, {
