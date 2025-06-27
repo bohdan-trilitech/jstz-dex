@@ -1,0 +1,85 @@
+diff --git a/resources/operations.js b/resources/operations.js
+index 0165224edb2266514ae77b1af81a19b86d24614f..b7523492380328acf3958e6f391bfa64fc7973a4 100644
+--- a/resources/operations.js
++++ b/resources/operations.js
+@@ -39,8 +39,10 @@ class Operations extends resource_1.APIResource {
+         const startTime = Date.now();
+         return new Promise((resolve, reject) => {
+             const interval = setInterval(async () => {
++                console.log("js Starting polling for receipt of operation:", operationHash);
+                 try {
+                     const call = this.getReceipt(operationHash, options);
++                    console.log(`Polling for receipt of operation ${operationHash}...`, call);
+                     const response = await call.asResponse();
+                     if (response.status === 200) {
+                         const receipt = parseInjectedOperationReceipt(await call);
+@@ -54,6 +56,7 @@ class Operations extends resource_1.APIResource {
+                     }
+                 }
+                 catch (err) {
++                    console.log("Polling for receipt failed:", err);
+                     clearInterval(interval);
+                     reject(err);
+                 }
+diff --git a/resources/operations.mjs b/resources/operations.mjs
+index 699aa0ee4341fd32de57c8c193d32fe07c0dd048..240275276d8bcd13295a0ef1e4b7a455c83f49cf 100644
+--- a/resources/operations.mjs
++++ b/resources/operations.mjs
+@@ -36,9 +36,17 @@ export class Operations extends APIResource {
+         const startTime = Date.now();
+         return new Promise((resolve, reject) => {
+             const interval = setInterval(async () => {
++                console.log("mjs Starting polling for receipt of operation:", operationHash);
+                 try {
+                     const call = this.getReceipt(operationHash, options);
+-                    const response = await call.asResponse();
++                    console.log(`Polling for receipt of operation ${operationHash}...`, call);
++                    let response;
++                    try {
++                        response = await call.asResponse();
++                    } catch (err) {
++                        console.log(`Polling for receipt of operation ${operationHash}...`, err);
++                        return
++                    }
+                     if (response.status === 200) {
+                         const receipt = parseInjectedOperationReceipt(await call);
+                         clearInterval(interval);
+@@ -51,6 +59,7 @@ export class Operations extends APIResource {
+                     }
+                 }
+                 catch (err) {
++                    console.log("Polling for receipt failed:", err);
+                     clearInterval(interval);
+                     reject(err);
+                 }
+diff --git a/src/resources/operations.ts b/src/resources/operations.ts
+index 48ab7e2367072cb89d4868e1da1336987093c906..e9ba5b27c7ca2d94e4f7ac9087dd4d498dd0364a 100644
+--- a/src/resources/operations.ts
++++ b/src/resources/operations.ts
+@@ -51,9 +51,17 @@ export class Operations extends APIResource {
+     const startTime = Date.now();
+     return new Promise((resolve, reject) => {
+       const interval = setInterval(async () => {
++        console.log("ts Starting polling for receipt of operation:", operationHash);
+         try {
+           const call = this.getReceipt(operationHash, options);
+-          const response = await call.asResponse();
++          console.log(`Polling for receipt of operation ${operationHash}...`, call);
++          let response;
++          try {
++            response = await call.asResponse();
++          } catch (err) {
++            console.log(`Polling for receipt of operation ${operationHash}...`, err);
++            return
++          }
+           if (response.status === 200) {
+             const receipt = parseInjectedOperationReceipt<T>(await call);
+             clearInterval(interval);
+@@ -65,6 +73,7 @@ export class Operations extends APIResource {
+             throw new Error('Poll timeout');
+           }
+         } catch (err) {
++          console.log("Polling for receipt failed:", err);
+           clearInterval(interval);
+           reject(err);
+         }
