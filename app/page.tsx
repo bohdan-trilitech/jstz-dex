@@ -20,6 +20,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useWalletContext } from "@/contexts/wallet.context";
 import { cn } from "@/lib/utils";
 
@@ -124,10 +125,22 @@ export default function DexApp() {
       <header className="border-b shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
-            <div>
-              <Logo />
-              <p className="text-muted-foreground text-sm">Bonding Curve Exchange</p>
-            </div>
+            <Tooltip>
+              <TooltipTrigger>
+                <div>
+                  <Logo />
+                  <p className="text-muted-foreground text-sm">Bonding Curve Exchange</p>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-muted-foreground text-sm">
+                  {process.env.NEXT_PUBLIC_JSTZ_NODE_ENDPOINT}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  {process.env.NEXT_PUBLIC_DEX_BASE_URL}
+                </p>
+              </TooltipContent>
+            </Tooltip>
             <div className="flex items-center gap-4">
               {/* Extension Status Indicator */}
               <div className="flex items-center gap-2">

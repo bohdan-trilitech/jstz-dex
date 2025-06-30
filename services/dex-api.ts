@@ -83,7 +83,7 @@ export class DexAPI {
   static async getAssets(): Promise<AssetMutatingResponse> {
     try {
       const result = await this.makeSmartFunctionCall<AssetMutatingResponse>("GET", "/assets");
-      return Array.isArray(result)
+      return Array.isArray(result?.assets)
         ? result
         : {
             status: 400,

@@ -26,6 +26,7 @@ export function AssetsContextProvider({ children }: AssetsProps) {
     setIsLoading(true);
     try {
       const data = await DexAPI.getAssets();
+      console.log(data);
       setAssets(data?.assets);
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Failed to list assets", 500);
