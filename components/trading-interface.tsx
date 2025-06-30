@@ -40,6 +40,7 @@ import {
 import { DexAPI } from "@/services/dex-api";
 import type { Asset, BalanceMutationResponse, UserBalance } from "@/types/dex";
 import { toMutez, toTez, toTezString } from "@/utils/currency.utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function TradingInterface() {
   const { assets, setAssets } = useAssetsContext();
@@ -222,7 +223,7 @@ export function TradingInterface() {
                         </FormControl>
                         <SelectContent>
                           {assets?.map((asset) => (
-                            <SelectItem key={asset.symbol} value={asset.symbol}>
+                            <SelectItem key={asset.symbol} disabled={!asset.listed} value={asset.symbol}>
                               <div className="flex w-full items-center justify-between">
                                 <span>
                                   {asset.name} ({asset.symbol})
@@ -230,6 +231,17 @@ export function TradingInterface() {
                                 <Badge variant="secondary">
                                   {toTezString(asset.basePrice + asset.supply * asset.slope)}
                                 </Badge>
+                                {!asset.listed &&
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge variant="destructive">
+                                        Unlisted
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      This asset is not currently listed for trading
+                                    </TooltipContent>
+                                  </Tooltip>}
                               </div>
                             </SelectItem>
                           ))}

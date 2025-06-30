@@ -128,7 +128,7 @@ export function AssetManagement() {
     try {
       const result = await DexAPI.listAsset({
         symbol: data.symbol.toUpperCase(),
-        basePrice: data.basePrice * ONE_TEZ, // Convert to mutez
+        basePrice: toMutez(data.basePrice),
         slope: data.slope,
       });
 
@@ -389,7 +389,7 @@ export function AssetManagement() {
                     <Button
                       variant="default"
                       size="sm"
-                      onClick={() => onListSubmit(asset)}
+                      onClick={() => onListSubmit({ ...asset, basePrice: toTez(asset.basePrice)})}
                       disabled={loading || !extensionAvailable}
                       className="w-full"
                     >
