@@ -90,13 +90,25 @@ export function WalletContextProvider({ children }: WalletProps) {
     }
   };
 
+  function updateUserBalances(newBalances: UserBalance) {
+    if (typeof newBalances === "object" && newBalances !== null) {
+      setUserBalances(newBalances);
+    }
+  }
+
+  function updateTransactions(newTransactions: Transaction[]) {
+    if (Array.isArray(newTransactions)) {
+      setTransactions(newTransactions);
+    }
+  }
+
   return (
     <WalletContext
       value={{
         isAdmin,
         userAddress,
         userBalances,
-        setUserBalances,
+        setUserBalances: updateUserBalances,
         isConnected,
         extensionStatus,
         loading,
@@ -105,7 +117,7 @@ export function WalletContextProvider({ children }: WalletProps) {
         connectWallet,
         disconnectWallet,
         loadUserBalances: loadWalletMeta,
-        setTransactions,
+        setTransactions: updateTransactions,
       }}
     >
       {children}

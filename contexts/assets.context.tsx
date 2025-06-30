@@ -35,11 +35,17 @@ export function AssetsContextProvider({ children }: AssetsProps) {
     }
   };
 
+  function updateAssets(newAssets: Asset[]) {
+    if (Array.isArray(newAssets)) {
+      setAssets(newAssets);
+    }
+  }
+
   return (
     <AssetsContext
       value={{
         assets,
-        setAssets,
+        setAssets: updateAssets,
         loadAssets,
         isLoading
       }}

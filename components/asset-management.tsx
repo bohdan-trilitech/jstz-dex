@@ -110,10 +110,6 @@ export function AssetManagement() {
 
       showToast(result.message, result.status);
 
-      if (result.status >= 300) {
-        return;
-      }
-
       mintForm.reset();
       setAssets(result.assets);
 
