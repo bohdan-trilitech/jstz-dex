@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useWalletContext } from "@/contexts/wallet.context";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 export default function DexApp() {
   const {
@@ -36,6 +37,10 @@ export default function DexApp() {
     disconnectWallet,
     userAddress,
   } = useWalletContext();
+
+  useEffect(() => {
+    checkExtensionStatus();
+  }, []);
 
   const {showToast} = useToast()
 
@@ -59,7 +64,7 @@ export default function DexApp() {
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="w-full max-w-md space-y-4">
           {/* Extension Status Alert */}
-          {extensionStatus !== "checking" && (
+          {extensionStatus !== "checking" ? (
             <Alert variant={extensionStatus === "available" ? "default" : "destructive"}>
               <div className="flex items-center justify-between gap-2">
                 {extensionStatus === "available" ? (
@@ -81,6 +86,16 @@ export default function DexApp() {
                   </Button>
                 </div>
               )}
+            </Alert>
+          ) : (
+            <Alert variant={"default" }>
+              <div className="flex items-center justify-between gap-2">
+                <Chrome className="h-4 w-4" />
+                <AlertDescription>
+                  jstz Signer extension checking status
+                </AlertDescription>
+                <ThemeModeToggle />
+              </div>
             </Alert>
           )}
 

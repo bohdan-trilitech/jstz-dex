@@ -34,13 +34,12 @@ export function WalletContextProvider({ children }: WalletProps) {
   const [userBalances, setUserBalances] = useState<UserBalance>({});
   const [isConnected, setIsConnected] = useState(false);
   const [extensionStatus, setExtensionStatus] = useState<"checking" | "available" | "unavailable">(
-    "available",
+    "checking",
   );
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const checkExtensionStatus = async () => {
-    setExtensionStatus("checking");
     try {
       const isAvailable = await DexAPI.checkExtensionAvailability();
       console.log(isAvailable);
