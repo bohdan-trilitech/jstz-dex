@@ -9,7 +9,7 @@ export async function checkExtensionAvailability() {
     {
       type: JstzSigner.SignerRequestEventTypes.CHECK_STATUS,
     },
-    { timeout: 500 },
+    { timeout: 1500 },
   )
 }
 
