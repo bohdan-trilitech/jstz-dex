@@ -11,6 +11,10 @@
 
 ## Using the DEX
 
+- when signing transactions, make sure you have a proper network selected:
+  - localhost: for local development
+  - privatenet: for testing on the Jstz private network (recommended)
+  - sandbox: for testing on the Jstz sandbox network (shouldn't be used in most case)
 - as a user you can buy, sell and swap assets on the DEX
 - as an operator, you can mint assets and manage existing once
 - to become an operator please contact the DEX team 
