@@ -7,7 +7,7 @@ import {
   WifiOff,
   Chrome,
   Coins,
-  SettingsIcon,
+  SettingsIcon, FileQuestion,
 } from "lucide-react";
 
 import { AssetManagement } from "@/components/asset-management";
@@ -122,6 +122,22 @@ export default function DexApp() {
                 </div>
               )}
 
+              <div className="flex items-center gap-2 justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     className="lucide lucide-circle-question-mark-icon lucide-circle-question-mark">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <path d="M12 17h.01" />
+                </svg>
+                <p className="text-muted-foreground text-sm">
+                  New to Jstz DEX?{" "}
+                </p>
+                <a target="_blank" href="https://github.com/bohdan-trilitech/jstz-dex/blob/main/docs/USING_DEX.md">
+                  Check docs
+                </a>
+              </div>
+
               {extensionStatus === "unavailable" && (
                 <Alert>
                   <AlertTriangle className="h-4 w-4" />
@@ -185,6 +201,16 @@ export default function DexApp() {
                 Disconnect
               </Button>
               <ThemeModeToggle />
+              <a target="_blank" href="https://github.com/bohdan-trilitech/jstz-dex/blob/main/docs/USING_DEX.md">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     className="lucide lucide-circle-question-mark-icon lucide-circle-question-mark">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <path d="M12 17h.01" />
+                </svg>
+              </a>
+
             </div>
           </div>
         </div>
