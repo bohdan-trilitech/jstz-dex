@@ -39,7 +39,7 @@ import {
 } from "@/lib/schemas";
 import { DexAPI } from "@/services/dex-api";
 import type { Asset, BalanceMutationResponse, UserBalance } from "@/types/dex";
-import { toMutez, toTez, toTezString } from "@/utils/currency.utils";
+import { toTez, toTezString } from "@/utils/currency.utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function TradingInterface() {
@@ -273,7 +273,7 @@ export function TradingInterface() {
                     </div>
                     <div className="flex justify-between">
                       <span>Slope:</span>
-                      <span className="font-mono">{selectedAsset.slope}</span>
+                      <span className="font-mono">{toTezString(selectedAsset.slope)}</span>
                     </div>
                   </div>
                 )}

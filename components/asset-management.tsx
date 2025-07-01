@@ -105,7 +105,7 @@ export function AssetManagement() {
         symbol: data.symbol.toUpperCase(),
         initialSupply: data.initialSupply,
         basePrice: toMutez(data.basePrice),
-        slope: data.slope,
+        slope: toMutez(data.slope),
       });
 
       showToast(result.message, result.status);
@@ -129,7 +129,7 @@ export function AssetManagement() {
       const result = await DexAPI.listAsset({
         symbol: data.symbol.toUpperCase(),
         basePrice: toMutez(data.basePrice),
-        slope: data.slope,
+        slope: toMutez(data.slope),
       });
 
       showToast(result.message, result.status);
@@ -372,7 +372,7 @@ export function AssetManagement() {
                   Current Price: {toTezString(asset.basePrice + asset.supply * asset.slope)}
                 </p>
                 <p className="text-muted-foreground text-sm">Base Price: {toTezString(asset.basePrice)}</p>
-                <p className="text-muted-foreground text-sm">Slope: {asset.slope}</p>
+                <p className="text-muted-foreground text-sm">Slope: {toTezString(asset.slope)}</p>
                 {isAdmin && asset.issuer === userAddress  &&
                   (asset.listed ? (
                     <Button
