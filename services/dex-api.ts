@@ -188,7 +188,14 @@ export class DexAPI {
 
   static async getMyWallet(): Promise<WalletResponse> {
     try {
-      const result = await this.makeSmartFunctionCall<WalletResponse>("GET", `/users/me`);
+      const result = await this.makeSmartFunctionCall<WalletResponse & {message?: string}>("GET", `/users/me`);
+      if (!result.address) {
+        if (result.message) {
+          throw new Error(result.message);
+        }
+        throw new Error("DEX API is not available");
+
+      }
       return result || {};
     } catch (error) {
       console.error("Failed to fetch user balances:", error);

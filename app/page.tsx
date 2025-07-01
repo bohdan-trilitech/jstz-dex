@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useWalletContext } from "@/contexts/wallet.context";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export default function DexApp() {
   const {
@@ -35,6 +36,23 @@ export default function DexApp() {
     disconnectWallet,
     userAddress,
   } = useWalletContext();
+
+  const {showToast} = useToast()
+
+  async function onConnect() {
+    try {
+      const meta = await connectWallet();
+
+      if (meta.address) {
+        showToast("Welcome!", 200);
+        return
+      }
+      showToast("Failed to connect wallet", 500);
+    } catch (error) {
+      console.error("Connection error:", error);
+      showToast(error instanceof Error ? error.message : "Failed to connect wallet", 500);
+    }
+  }
 
   if (!isConnected) {
     return (
@@ -82,7 +100,7 @@ export default function DexApp() {
                     </p>
                   </div>
                   <Button
-                    onClick={connectWallet}
+                    onClick={onConnect}
                     className="w-full"
                     disabled={connecting || extensionStatus !== "available"}
                   >

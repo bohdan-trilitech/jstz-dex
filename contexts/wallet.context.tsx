@@ -16,7 +16,7 @@ interface WalletContext {
   checkExtensionStatus: () => Promise<void>;
   extensionStatus: "checking" | "available" | "unavailable";
   loading: boolean;
-  connectWallet: () => Promise<void>;
+  connectWallet: () => Promise<WalletResponse>;
   disconnectWallet: () => void;
   loadUserBalances: () => Promise<WalletResponse>;
   transactions: Transaction[];
@@ -53,17 +53,20 @@ export function WalletContextProvider({ children }: WalletProps) {
 
   const connectWallet = async () => {
     if (extensionStatus !== "available") {
-      return;
+      throw new Error("Extension is not available. Please install the jstz Signer extension.");
     }
 
     setLoading(true);
     try {
       const meta = await loadWalletMeta();
-      console.log(meta);
-      setUserAddress(meta.address ?? "");
-      setIsConnected(true);
+
+      if (meta.address) {
+        setUserAddress(meta.address ?? "");
+        setIsConnected(true);
+      }
+      return meta
     } catch (error) {
-      console.error("Failed to connect wallet:", error);
+      throw error;
     } finally {
       setLoading(false);
     }
