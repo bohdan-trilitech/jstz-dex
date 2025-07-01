@@ -1,5 +1,6 @@
 import { AutoRouter, json } from "itty-router";
 import { z } from "zod";
+import { toTezString } from "@/utils/currency.utils";
 
 const ONE_TOKEN = 1;
 const ONE_TEZ = 1_000_000; // 1 tez = 1 million mutez
@@ -753,7 +754,7 @@ router.post("/sell", async (request) => {
 
 
     const metadata = await addWalletMetadata(address, {
-      message: `Sold ${amount} ${symbol} for estimated value ${totalReturn.toFixed(0)}`,
+      message: `Sold ${amount} ${symbol} for estimated value ${toTezString(totalReturn)}`,
     });
 
     return successResponse(metadata, {
