@@ -32,12 +32,14 @@ import { cn } from "@/lib/utils";
 import { DexAPI } from "@/services/dex-api";
 import { toMutez, toTez, toTezString } from "@/utils/currency.utils";
 import { Jstz } from "@jstz-dev/jstz-client";
+import { useRemoteConfigContext } from "@/contexts/remote-config.context";
 
 const ONE_TEZ = 1000000; // 1 Tez in mutez
 
 export function AssetManagement() {
   const { assets, setAssets, loadAssets, isLoading } = useAssetsContext();
   const { isAdmin, extensionStatus, userAddress, updateMeta } = useWalletContext();
+  const {jstzDexUrl} = useRemoteConfigContext()
   const [tezBalance, setTezBalance] = useState<number | null>(null)
 
   const [loading, setLoading] = useState(false);
@@ -79,7 +81,7 @@ export function AssetManagement() {
     }
 
     try {
-      const dexURL = process.env.NEXT_PUBLIC_DEX_BASE_URL;
+      const dexURL = jstzDexUrl ?? process.env.NEXT_PUBLIC_DEX_BASE_URL;
       if (dexURL) {
         const dexAddress = dexURL.substring(dexURL.indexOf(":") + 3, dexURL.length);
         const balance = await jstzClient.accounts.getBalance(dexAddress);

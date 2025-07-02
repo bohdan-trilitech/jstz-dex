@@ -25,6 +25,7 @@ import { useWalletContext } from "@/contexts/wallet.context";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
+import { useRemoteConfigContext } from "@/contexts/remote-config.context";
 
 export default function DexApp() {
   const {
@@ -37,6 +38,8 @@ export default function DexApp() {
     disconnectWallet,
     userAddress,
   } = useWalletContext();
+
+  const {jstzDexUrl} = useRemoteConfigContext()
 
   useEffect(() => {
     checkExtensionStatus();
@@ -186,7 +189,7 @@ export default function DexApp() {
                   {process.env.NEXT_PUBLIC_JSTZ_NODE_ENDPOINT}
                 </p>
                 <p className="text-muted-foreground text-sm">
-                  {process.env.NEXT_PUBLIC_DEX_BASE_URL}
+                  {jstzDexUrl ?? process.env.NEXT_PUBLIC_DEX_BASE_URL}
                 </p>
               </TooltipContent>
             </Tooltip>
