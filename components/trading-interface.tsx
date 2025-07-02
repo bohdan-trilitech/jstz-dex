@@ -44,7 +44,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 export function TradingInterface() {
   const { assets, setAssets } = useAssetsContext();
-  const { setUserBalances, setTransactions, userBalances, extensionStatus } = useWalletContext();
+  const { updateMeta, userBalances, extensionStatus } = useWalletContext();
 
   const extensionAvailable = extensionStatus === "available" || extensionStatus === "checking";
 
@@ -86,18 +86,6 @@ export function TradingInterface() {
     }
   }, [watchedAssetSymbol, assets]);
 
-  async function updateMeta(response: BalanceMutationResponse) {
-    if (
-      typeof response !== "object" ||
-      !response.assets ||
-      !response.balances ||
-      !response.transactions
-    )
-      return;
-    setAssets(response.assets);
-    setUserBalances(response.balances);
-    setTransactions(response.transactions);
-  }
 
   const onBuySubmit = async (data: BuyTokenForm) => {
     if (!extensionAvailable) {

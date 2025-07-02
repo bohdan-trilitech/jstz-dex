@@ -7,6 +7,7 @@ import { AssetsContextProvider } from "@/contexts/assets.context";
 import { WalletContextProvider } from "@/contexts/wallet.context";
 
 import "./globals.css";
+import { RemoteConfigContextProvider } from "@/contexts/remote-config.context";
 
 export const metadata: Metadata = {
   title: "Jstz DEX",
@@ -23,12 +24,14 @@ export default function RootLayout({
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <TooltipProvider>
+            <RemoteConfigContextProvider>
             <AssetsContextProvider>
               <WalletContextProvider>
                 {children}
                 <Toaster />
               </WalletContextProvider>
             </AssetsContextProvider>
+            </RemoteConfigContextProvider>
           </TooltipProvider>
         </ThemeProvider>
       </body>

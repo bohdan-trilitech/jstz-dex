@@ -37,7 +37,7 @@ const ONE_TEZ = 1000000; // 1 Tez in mutez
 
 export function AssetManagement() {
   const { assets, setAssets, loadAssets, isLoading } = useAssetsContext();
-  const { isAdmin, extensionStatus, userAddress } = useWalletContext();
+  const { isAdmin, extensionStatus, userAddress, updateMeta } = useWalletContext();
   const [tezBalance, setTezBalance] = useState<number | null>(null)
 
   const [loading, setLoading] = useState(false);
@@ -112,6 +112,8 @@ export function AssetManagement() {
 
       mintForm.reset();
       setAssets(result.assets);
+
+      void updateMeta(result)
 
       void getTezBalance()
     } catch (error) {

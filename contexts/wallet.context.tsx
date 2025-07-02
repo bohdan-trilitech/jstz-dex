@@ -5,7 +5,7 @@ import { createContext, useContext, useState, type PropsWithChildren } from "rea
 import { useAssetsContext } from "@/contexts/assets.context";
 import { requestAddress } from "@/lib/jstz-signer.service";
 import { DexAPI } from "@/services/dex-api";
-import type { Asset, Transaction, UserBalance, WalletResponse } from "@/types/dex";
+import { Asset, BalanceMutationResponse, MintResult, Transaction, UserBalance, WalletResponse } from "@/types/dex";
 
 interface WalletContext {
   isAdmin: boolean;
@@ -21,6 +21,7 @@ interface WalletContext {
   loadUserBalances: () => Promise<WalletResponse>;
   transactions: Transaction[];
   setTransactions: (transactions: Transaction[]) => void;
+  updateMeta: (response: MintResult) => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContext>({} as WalletContext);
@@ -104,6 +105,19 @@ export function WalletContextProvider({ children }: WalletProps) {
     }
   }
 
+  async function updateMeta(response: MintResult) {
+    if (
+      typeof response !== "object" ||
+      !response.assets ||
+      !response.balances ||
+      !response.transactions
+    )
+      return;
+    setAssets(response.assets);
+    setUserBalances(response.balances);
+    setTransactions(response.transactions);
+  }
+
   return (
     <WalletContext
       value={{
@@ -120,6 +134,7 @@ export function WalletContextProvider({ children }: WalletProps) {
         disconnectWallet,
         loadUserBalances: loadWalletMeta,
         setTransactions: updateTransactions,
+        updateMeta,
       }}
     >
       {children}

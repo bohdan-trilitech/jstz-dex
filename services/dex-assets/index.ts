@@ -33,7 +33,7 @@ const createAssetSchema = assetSchema
   .omit({ supply: true, listed: true, issuer: true });
 
 const transactionSchema = z.object({
-  type: z.enum(["buy", "sell", "swap", "list", "unlist"]),
+  type: z.enum(["mint", "buy", "sell", "swap", "list", "unlist"]),
   symbol: z.string().optional(),
   fromSymbol: z.string().optional(),
   toSymbol: z.string().optional(),
@@ -249,7 +249,7 @@ async function getAssets() {
 
 async function getWalletTransactions(address: string) {
   const data = await Kv.get(`txs/${address}`);
-  return data ? JSON.parse(data) : [];
+  return (data ? JSON.parse(data) : []).reverse();
 }
 
 async function addAssetsMetadata(response?: Record<string, unknown>) {
@@ -367,8 +367,17 @@ router.post("/assets/mint", async (request) => {
   assetKeys.push(key);
   await Kv.set(indexKey, JSON.stringify(assetKeys));
 
+  await updateUserBalance(address, symbol, initialSupply);
+  await logTransaction(address, {
+    type: "mint",
+    symbol,
+    amount: initialSupply,
+    cost: totalCost,
+  });
+
+
   return successResponse(
-    await addAssetsMetadata({
+    await addWalletMetadata(address, {
       message: `Asset '${symbol}' minted and listed.`,
     }),
   );

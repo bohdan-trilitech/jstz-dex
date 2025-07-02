@@ -13,7 +13,7 @@ export interface UserBalance {
 }
 
 export interface Transaction {
-  type: "buy" | "sell" | "swap" | "list" | "unlist";
+  type: "mint" | "buy" | "sell" | "swap" | "list" | "unlist";
   symbol?: string;
   fromSymbol?: string;
   toSymbol?: string;
@@ -42,6 +42,9 @@ export interface WalletResponse {
   assets: Asset[];
   balances: UserBalance;
   transactions: Transaction[];
+}
+
+export interface MintResult extends MessageResponse,BalanceMutationResponse {
 }
 
 export interface SwapResult extends MessageResponse,BalanceMutationResponse {

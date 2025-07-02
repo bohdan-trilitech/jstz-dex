@@ -8,7 +8,7 @@ import {
   AssetMutatingResponse,
   WalletResponse,
   SellResult,
-  OperatorsResponse,
+  OperatorsResponse, BalanceMutationResponse, MintResult,
 } from "@/types/dex";
 import { toMutez, toTez } from "@/utils/currency.utils";
 
@@ -24,6 +24,11 @@ interface SmartFunctionCallOptions {
   headers?: Record<string, string>;
 }
 
+function getRemoteConfigUrl() {
+  const persistedUrl = JSON.parse(localStorage.getItem("remote-config") ?? "{}");
+  return persistedUrl?.JSTZ_DEX_ADDRESS ?? "";
+}
+
 export class DexAPI {
   private static async makeSmartFunctionCall<T>(
     method: string,
@@ -33,7 +38,15 @@ export class DexAPI {
   ): Promise<T> {
     const { gasLimit = 100000, baseURL, headers = {} } = options || {};
 
-    const uri = `${baseURL ?? process.env.NEXT_PUBLIC_DEX_BASE_URL}${path ?? ""}`;
+    let jstzDexUrl = getRemoteConfigUrl();
+
+    if (process.env.NODE_ENV === "development") {
+      jstzDexUrl = process.env.NEXT_PUBLIC_DEX_BASE_URL;
+    }
+
+    console.log(jstzDexUrl);
+
+    const uri = `${baseURL ?? jstzDexUrl}${path ?? ""}`;
     return new Promise((resolve, reject) => {
       callSmartFunction({
         smartFunctionRequest: {
@@ -110,7 +123,7 @@ export class DexAPI {
     initialSupply: number;
     basePrice: number;
     slope: number;
-  }): Promise<AssetMutatingResponse> {
+  }): Promise<MintResult> {
     const transferAmount = this.calculateTokenPrice(
       {
         supply: data.initialSupply,
@@ -125,7 +138,7 @@ export class DexAPI {
     if (transferAmount > 0) {
       headers[TRANSFER_HEADER] = transferAmount.toFixed(0);
     }
-    return this.makeSmartFunctionCall<AssetMutatingResponse>("POST", "/assets/mint", data, {
+    return this.makeSmartFunctionCall<MintResult>("POST", "/assets/mint", data, {
       headers,
     });
   }
@@ -188,13 +201,15 @@ export class DexAPI {
 
   static async getMyWallet(): Promise<WalletResponse> {
     try {
-      const result = await this.makeSmartFunctionCall<WalletResponse & {message?: string}>("GET", `/users/me`);
+      const result = await this.makeSmartFunctionCall<WalletResponse & { message?: string }>(
+        "GET",
+        `/users/me`,
+      );
       if (!result.address) {
         if (result.message) {
           throw new Error(result.message);
         }
         throw new Error("DEX API is not available");
-
       }
       return result || {};
     } catch (error) {

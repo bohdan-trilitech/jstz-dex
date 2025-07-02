@@ -39,6 +39,8 @@ export function Portfolio() {
 
   const formatTransactionType = (tx: Transaction) => {
     switch (tx.type) {
+      case "mint":
+        return `Minted ${tx.amount} ${tx.symbol}`;
       case "buy":
         return `Bought ${tx.amount} ${tx.symbol}`;
       case "sell":
@@ -56,6 +58,8 @@ export function Portfolio() {
 
   const getTransactionBadgeVariant = (type: string) => {
     switch (type) {
+      case "mint":
+        return "default";
       case "buy":
         return "default";
       case "sell":
