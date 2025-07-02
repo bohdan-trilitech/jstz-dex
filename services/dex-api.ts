@@ -44,9 +44,7 @@ export class DexAPI {
       jstzDexUrl = process.env.NEXT_PUBLIC_DEX_BASE_URL;
     }
 
-    console.log(jstzDexUrl);
-
-    const uri = `${baseURL ?? jstzDexUrl}${path ?? ""}`;
+    const uri = `${baseURL ?? jstzDexUrl ?? process.env.NEXT_PUBLIC_DEX_BASE_URL ?? ""}${path ?? ""}`;
     return new Promise((resolve, reject) => {
       callSmartFunction({
         smartFunctionRequest: {
