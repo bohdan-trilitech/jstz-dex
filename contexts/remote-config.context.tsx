@@ -27,7 +27,7 @@ export function RemoteConfigContextProvider({ children }: PropsWithChildren) {
 
   async function fetchRemoteConfig() {
     try {
-      const rawData = await fetch("http://localhost:8080/remote-config");
+      const rawData = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/remote-config`);
 
       if (!rawData.ok) {
         throw new Error("Failed to fetch remote config");
