@@ -53,7 +53,7 @@ export function WalletContextProvider({ children }: WalletProps) {
       console.log(isAvailable);
       setExtensionStatus(isAvailable ? "available" : "unavailable");
     } catch (error) {
-      const maxRetries = retries ?? 1;
+      const maxRetries = retries ?? 3;
       const retryCount = currentRetry ?? 0;
       if (retryCount < maxRetries) {
         void checkExtensionStatus(maxRetries, retryCount + 1);
