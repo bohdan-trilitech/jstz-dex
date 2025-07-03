@@ -40,10 +40,6 @@ export class DexAPI {
 
     let jstzDexUrl = getRemoteConfigUrl();
 
-    if (process.env.NODE_ENV === "development") {
-      jstzDexUrl = process.env.NEXT_PUBLIC_DEX_BASE_URL;
-    }
-
     const uri = `${baseURL ?? jstzDexUrl ?? process.env.NEXT_PUBLIC_DEX_BASE_URL ?? ""}${path ?? ""}`;
     return new Promise((resolve, reject) => {
       callSmartFunction({
