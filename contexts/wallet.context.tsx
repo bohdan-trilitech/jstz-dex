@@ -5,7 +5,14 @@ import { createContext, useContext, useState, type PropsWithChildren } from "rea
 import { useAssetsContext } from "@/contexts/assets.context";
 import { requestAddress } from "@/lib/jstz-signer.service";
 import { DexAPI } from "@/services/dex-api";
-import { Asset, BalanceMutationResponse, MintResult, Transaction, UserBalance, WalletResponse } from "@/types/dex";
+import {
+  Asset,
+  BalanceMutationResponse,
+  MintResult,
+  Transaction,
+  UserBalance,
+  WalletResponse,
+} from "@/types/dex";
 
 interface WalletContext {
   isAdmin: boolean;
@@ -40,12 +47,18 @@ export function WalletContextProvider({ children }: WalletProps) {
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  const checkExtensionStatus = async () => {
+  const checkExtensionStatus = async (retries?: number, currentRetry?: number) => {
     try {
       const isAvailable = await DexAPI.checkExtensionAvailability();
       console.log(isAvailable);
       setExtensionStatus(isAvailable ? "available" : "unavailable");
     } catch (error) {
+      const maxRetries = retries ?? 1;
+      const retryCount = currentRetry ?? 0;
+      if (retryCount < maxRetries) {
+        void checkExtensionStatus(maxRetries, retryCount + 1);
+        return;
+      }
       setExtensionStatus("unavailable");
       console.error("Extension check failed:", error);
     }
@@ -64,7 +77,7 @@ export function WalletContextProvider({ children }: WalletProps) {
         setUserAddress(meta.address ?? "");
         setIsConnected(true);
       }
-      return meta
+      return meta;
     } catch (error) {
       throw error;
     } finally {

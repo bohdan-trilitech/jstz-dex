@@ -24,7 +24,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useWalletContext } from "@/contexts/wallet.context";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useRemoteConfigContext } from "@/contexts/remote-config.context";
 
 export default function DexApp() {
@@ -41,7 +41,7 @@ export default function DexApp() {
 
   const {jstzDexUrl} = useRemoteConfigContext()
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     checkExtensionStatus();
   }, []);
 
