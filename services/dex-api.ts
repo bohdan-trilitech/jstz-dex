@@ -8,12 +8,9 @@ import {
   AssetMutatingResponse,
   WalletResponse,
   SellResult,
-  OperatorsResponse, BalanceMutationResponse, MintResult,
+  OperatorsResponse, MintResult,
 } from "@/types/dex";
-import { toMutez, toTez } from "@/utils/currency.utils";
-
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
+import { toMutez } from "@/utils/currency.utils";
 
 const TRANSFER_HEADER = "X-JSTZ-TRANSFER";
 const REFUND_HEADER = "X-JSTZ-AMOUNT";
@@ -45,7 +42,7 @@ export class DexAPI {
       callSmartFunction({
         smartFunctionRequest: {
           _type: "RunFunction",
-          body: body ? Array.from(encoder.encode(JSON.stringify(body))) : null,
+          body: body ? btoa(JSON.stringify(body)) : null,
           gasLimit,
           headers,
           method,
@@ -64,15 +61,18 @@ export class DexAPI {
 
             let returnedMessage: any = "No message.";
 
+
             if (typeof inner === "object" && "body" in inner && inner.body) {
+              const decodedBody = atob(inner.body)
               try {
-                returnedMessage = JSON.parse(decoder.decode(new Uint8Array(inner.body)));
+                returnedMessage = JSON.parse(decodedBody);
               } catch {
-                returnedMessage = decoder.decode(new Uint8Array(inner.body));
+                returnedMessage = decodedBody;
               }
             }
 
             if (typeof inner === "string") {
+
               returnedMessage = inner;
             }
 
